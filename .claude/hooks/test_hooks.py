@@ -61,6 +61,16 @@ class TestGuardOracle(unittest.TestCase):
         command = "sed -i s/deny/allow/ .claude/hooks/guard_oracle.py"
         self.assertEqual(run_guard("Bash", {"command": command}), "deny")
 
+    def test_settings_that_could_disable_hooks_are_protected(self):
+        for path in (
+            ROOT / ".claude" / "settings.local.json",
+            Path.home() / ".claude" / "settings.json",
+        ):
+            with self.subTest(path=str(path)):
+                self.assertEqual(run_guard("Write", {"file_path": str(path)}), "deny")
+        command = "echo '{}' > .claude/settings.local.json"
+        self.assertEqual(run_guard("Bash", {"command": command}), "deny")
+
     def test_shell_reads_of_oracle_are_allowed(self):
         doc = ORACLE_DOC.relative_to(ROOT).as_posix()
         for command in (f"cat {doc}", f"git diff {doc}", f"grep USD {doc}"):
