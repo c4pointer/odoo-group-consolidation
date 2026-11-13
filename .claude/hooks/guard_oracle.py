@@ -26,7 +26,7 @@ from pathlib import Path
 PROTECTED_GLOBS = (
     "docs/expected_numbers.md",
     "addons/*/tests/expected_*.py",
-    ".claude/settings.json",
+    ".claude/settings*.json",
     ".claude/hooks/guard_oracle.py",
 )
 # Text that marks a shell command as touching a protected file.
@@ -45,16 +45,24 @@ REASON = (
 
 
 def is_protected(path: str, root: Path) -> bool:
+    if not path:
+        return False
+    resolved = Path(path).resolve()
+    # Claude Code settings at any level (project, local, user) can switch hooks off.
+    if resolved.parent.name == ".claude" and fnmatch(resolved.name, "settings*.json"):
+        return True
     try:
-        rel = Path(path).resolve().relative_to(root.resolve()).as_posix()
+        rel = resolved.relative_to(root.resolve()).as_posix()
     except ValueError:
         return False
     return any(fnmatch(rel, pattern) for pattern in PROTECTED_GLOBS)
 
 
 def shell_touches_oracle(command: str) -> bool:
-    mentions = "expected_numbers" in command or re.search(r"tests/expected_\w*\.py", command)
-    return bool(mentions) and not READ_ONLY_COMMANDS.match(command)
+    if not MENTIONS.search(command):
+        return False
+    is_plain_read = READ_ONLY_COMMANDS.match(command) and not SHELL_WRITE_RISK.search(command)
+    return not is_plain_read
 
 
 def main() -> int:
