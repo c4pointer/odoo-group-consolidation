@@ -16,6 +16,9 @@ def main() -> int:
     path = event.get("tool_input", {}).get("file_path", "")
     if not path.endswith(".py") or not Path(path).is_file():
         return 0
+    root = Path(event.get("cwd") or ".").resolve()
+    if not Path(path).resolve().is_relative_to(root):
+        return 0  # scratch files outside the repository are not linted
     if shutil.which("ruff") is None:
         print("lint hook: ruff is not installed, skipping", file=sys.stderr)
         return 0
