@@ -1,0 +1,14 @@
+# Local tooling
+.venv/
+.idea/
+.vscode/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+
+# Local environment overrides
+.env
+docker-compose.override.yml
+
+# Personal Claude Code settings (shared settings live in .claude/settings.json)
+.claude/settings.local.json
