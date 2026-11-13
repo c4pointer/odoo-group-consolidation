@@ -8,10 +8,13 @@ the editor and commits them; the agent only reads them.
 Protected paths (relative to the repository root):
   docs/expected_numbers.md
   addons/*/tests/expected_*.py
+  .claude/settings.json and this file, so the agent cannot switch the guard off
 
 This is a guardrail, not a sandbox: it stops the obvious paths (Edit/Write and
-shell commands that name the file). Every change to these files is still
-visible in `git log` and must be reviewed by a human.
+shell commands that name the file). A shell command that names a protected
+file is allowed only when it is a single read-only command with no redirection,
+pipes, chaining, substitution or output flags. Every change to these files is
+still visible in `git log` and must be reviewed by a human.
 """
 
 import json
@@ -23,15 +26,21 @@ from pathlib import Path
 PROTECTED_GLOBS = (
     "docs/expected_numbers.md",
     "addons/*/tests/expected_*.py",
+    ".claude/settings.json",
+    ".claude/hooks/guard_oracle.py",
 )
-# Shell fragments that read but never write.
+# Text that marks a shell command as touching a protected file.
+MENTIONS = re.compile(r"expected_numbers|tests/expected_|guard_oracle|\.claude/settings")
+# Commands that read but never write...
 READ_ONLY_COMMANDS = re.compile(
-    r"^\s*(cat|less|head|tail|grep|rg|wc|diff|git (diff|log|show|blame|status))\b"
+    r"^\s*(cat|less|head|tail|grep|rg|wc|diff|git (diff|log|show|blame|status))\s"
 )
+# ...as long as nothing redirects, chains, substitutes or writes an output file.
+SHELL_WRITE_RISK = re.compile(r"[;&|<>`\n]|\$\(|--output|(^|\s)-o(\s|$)")
 REASON = (
-    "Blocked by .claude/hooks/guard_oracle.py: this file holds the hand-computed "
-    "expected figures (the test oracle). The agent must not change it. If the "
-    "numbers look wrong, explain why and let the human edit the file."
+    "Blocked by .claude/hooks/guard_oracle.py: this file is human-owned (the "
+    "hand-computed test oracle or the guard itself). The agent must not change "
+    "it. Explain the proposed change and let the human edit the file."
 )
 
 

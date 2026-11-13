@@ -41,6 +41,26 @@ class TestGuardOracle(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertEqual(run_guard("Bash", {"command": command}), "deny")
 
+    def test_read_commands_that_write_are_denied(self):
+        doc = ORACLE_DOC.relative_to(ROOT).as_posix()
+        for command in (
+            f"cat /tmp/x > {doc}",
+            f"git diff --output={doc}",
+            f"git show HEAD:README.md -o {doc}",
+            f"cat {doc} | tee {doc}",
+            f"cat {doc}; rm {doc}",
+            f"cat $(echo {doc})",
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(run_guard("Bash", {"command": command}), "deny")
+
+    def test_guard_protects_itself(self):
+        for rel in (".claude/settings.json", ".claude/hooks/guard_oracle.py"):
+            with self.subTest(path=rel):
+                self.assertEqual(run_guard("Edit", {"file_path": str(ROOT / rel)}), "deny")
+        command = "sed -i s/deny/allow/ .claude/hooks/guard_oracle.py"
+        self.assertEqual(run_guard("Bash", {"command": command}), "deny")
+
     def test_shell_reads_of_oracle_are_allowed(self):
         doc = ORACLE_DOC.relative_to(ROOT).as_posix()
         for command in (f"cat {doc}", f"git diff {doc}", f"grep USD {doc}"):
