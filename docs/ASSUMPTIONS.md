@@ -14,10 +14,10 @@ Where the task does not say, this is what was assumed. One line each.
 
 6. Group reporting currency is USD.
 7. P&L lines are translated at the monthly average rate, balance sheet lines at the month-end closing rate, share capital at the historical rate; the difference goes to a translation reserve (CTA) in equity.
-8. Lines denominated in USD are taken at their USD amount (`amount_currency`) and not re-translated; for monetary items this equals closing-rate translation after remeasurement, and it keeps intercompany amounts exact.
+8. Lines denominated in USD are taken at their USD amount (`amount_currency`) and not re-translated; for monetary items this equals closing-rate translation after remeasurement, and it keeps intercompany amounts exact. Exchange differences carry no USD amount, so they are translated from local currency.
 9. Average and closing rates are entered per period in the consolidation module, separately from Odoo's daily transaction rates.
-10. Demo rates are fictional round numbers chosen so a controller can check the figures by hand; in Odoo the average rate is dated the 1st of the month and the closing rate the last day.
-11. Unrealised FX revaluation is not booked in the demo (Community has no revaluation wizard); if a company books it, its FX result stays in the group P&L, as IAS 21.45 requires for intercompany monetary items.
+10. Demo rates are fictional round numbers chosen so a controller can check the figures by hand; Odoo holds one rate per month end, and because Odoo 20 applies a rate from the day after its date, each month-end rate is used for the next month's transactions and serves as that month's average.
+11. Unrealised FX revaluation is not booked in the demo (Community has no revaluation wizard); realised exchange differences (Poland's receipt on 1 April) and any revaluation a company books stay in the group P&L, as IAS 21.45 requires for intercompany monetary items.
 12. Amounts are rounded to 0.01 per report line; the translation reserve is the balancing figure.
 
 ## Intercompany

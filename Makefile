@@ -2,6 +2,7 @@
 DB       ?= delta
 TEST_DB  ?= delta_test
 MODULE   := account_group_consolidation
+DEMO     := account_group_consolidation_demo
 COMPOSE  := docker compose
 ODOO     := $(COMPOSE) run --rm -T odoo odoo
 DROPDB   := $(COMPOSE) exec -T db dropdb -U odoo --if-exists --force
@@ -21,11 +22,11 @@ down: ## Stop all containers (data volumes are kept)
 logs: ## Follow the Odoo log
 	$(COMPOSE) logs -f odoo
 
-demo: ## Recreate the demo database with the module installed, then start Odoo
+demo: ## Recreate the demo database with the module and Delta Group demo data, then start Odoo
 	$(COMPOSE) up -d --wait db
 	$(COMPOSE) stop odoo
 	$(DROPDB) $(DB)
-	$(ODOO) -d $(DB) -i $(MODULE) --stop-after-init
+	$(ODOO) -d $(DB) -i $(DEMO) --stop-after-init
 	$(COMPOSE) up -d odoo
 	@echo "Ready: http://localhost:$${ODOO_PORT:-8020}  (db: $(DB), login: admin / admin)"
 
