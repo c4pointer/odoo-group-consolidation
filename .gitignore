@@ -12,3 +12,7 @@ docker-compose.override.yml
 
 # Personal Claude Code settings (shared settings live in .claude/settings.json)
 .claude/settings.local.json
+
+# Leftovers from patch(1)
+*.orig
+*.rej
