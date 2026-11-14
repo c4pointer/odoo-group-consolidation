@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Default mapping for Odoo's generic chart of accounts. Controllers edit it in
+         Accounting > Configuration > Consolidation lines; the longest matching prefix wins. -->
+    <record id="line_revenue" model="account.consolidation.line">
+        <field name="code">revenue</field>
+        <field name="name">External revenue</field>
+        <field name="sequence">10</field>
+        <field name="section">pl</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">4</field>
+        <field name="partner_scope">external</field>
+    </record>
+    <record id="line_ic_revenue" model="account.consolidation.line">
+        <field name="code">ic_revenue</field>
+        <field name="name">Intercompany revenue</field>
+        <field name="sequence">20</field>
+        <field name="section">pl</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">4</field>
+        <field name="partner_scope">intercompany</field>
+    </record>
+    <record id="line_ic_cost" model="account.consolidation.line">
+        <field name="code">ic_cost</field>
+        <field name="name">Intercompany services cost</field>
+        <field name="sequence">30</field>
+        <field name="section">pl</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">5,6</field>
+        <field name="partner_scope">intercompany</field>
+    </record>
+    <record id="line_payroll" model="account.consolidation.line">
+        <field name="code">payroll</field>
+        <field name="name">Payroll</field>
+        <field name="sequence">40</field>
+        <field name="section">pl</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">63</field>
+        <field name="partner_scope">any</field>
+    </record>
+    <record id="line_other_costs" model="account.consolidation.line">
+        <field name="code">other_costs</field>
+        <field name="name">Other external costs</field>
+        <field name="sequence">50</field>
+        <field name="section">pl</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">5,6</field>
+        <field name="partner_scope">external</field>
+    </record>
+    <record id="line_fx" model="account.consolidation.line">
+        <field name="code">fx</field>
+        <field name="name">Exchange differences</field>
+        <field name="sequence">60</field>
+        <field name="section">pl</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">441,641</field>
+        <field name="partner_scope">any</field>
+    </record>
+    <record id="line_bank" model="account.consolidation.line">
+        <field name="code">bank</field>
+        <field name="name">Bank and cash</field>
+        <field name="sequence">110</field>
+        <field name="section">asset</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">101</field>
+        <field name="partner_scope">any</field>
+    </record>
+    <record id="line_cash_in_transit" model="account.consolidation.line">
+        <field name="code">cash_in_transit</field>
+        <field name="name">Cash in transit</field>
+        <field name="sequence">120</field>
+        <field name="section">asset</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">1018</field>
+        <field name="partner_scope">any</field>
+    </record>
+    <record id="line_receivables" model="account.consolidation.line">
+        <field name="code">receivables</field>
+        <field name="name">External trade receivables</field>
+        <field name="sequence">130</field>
+        <field name="section">asset</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">121</field>
+        <field name="partner_scope">external</field>
+    </record>
+    <record id="line_ic_receivables" model="account.consolidation.line">
+        <field name="code">ic_receivables</field>
+        <field name="name">Intercompany receivables</field>
+        <field name="sequence">140</field>
+        <field name="section">asset</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">121</field>
+        <field name="partner_scope">intercompany</field>
+    </record>
+    <record id="line_ic_loan_receivable" model="account.consolidation.line">
+        <field name="code">ic_loan_receivable</field>
+        <field name="name">Intercompany loans receivable</field>
+        <field name="sequence">150</field>
+        <field name="section">asset</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">192</field>
+        <field name="partner_scope">intercompany</field>
+    </record>
+    <record id="line_ic_clearing" model="account.consolidation.line">
+        <field name="code">ic_clearing</field>
+        <field name="name">Intercompany clearing</field>
+        <field name="sequence">160</field>
+        <field name="section">asset</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">1999</field>
+        <field name="partner_scope">any</field>
+    </record>
+    <record id="line_payables" model="account.consolidation.line">
+        <field name="code">payables</field>
+        <field name="name">External trade payables</field>
+        <field name="sequence">210</field>
+        <field name="section">liability</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">211</field>
+        <field name="partner_scope">external</field>
+    </record>
+    <record id="line_salaries_payable" model="account.consolidation.line">
+        <field name="code">salaries_payable</field>
+        <field name="name">Salaries payable</field>
+        <field name="sequence">220</field>
+        <field name="section">liability</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">23</field>
+        <field name="partner_scope">any</field>
+    </record>
+    <record id="line_ic_payables" model="account.consolidation.line">
+        <field name="code">ic_payables</field>
+        <field name="name">Intercompany payables</field>
+        <field name="sequence">230</field>
+        <field name="section">liability</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">211</field>
+        <field name="partner_scope">intercompany</field>
+    </record>
+    <record id="line_ic_loan_payable" model="account.consolidation.line">
+        <field name="code">ic_loan_payable</field>
+        <field name="name">Intercompany loans payable</field>
+        <field name="sequence">240</field>
+        <field name="section">liability</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">292</field>
+        <field name="partner_scope">intercompany</field>
+    </record>
+    <record id="line_share_capital" model="account.consolidation.line">
+        <field name="code">share_capital</field>
+        <field name="name">Share capital</field>
+        <field name="sequence">250</field>
+        <field name="section">liability</field>
+        <field name="kind">accounts</field>
+        <field name="account_prefixes">301</field>
+        <field name="partner_scope">any</field>
+    </record>
+    <record id="line_profit" model="account.consolidation.line">
+        <field name="code">profit</field>
+        <field name="name">Profit to date</field>
+        <field name="sequence">260</field>
+        <field name="section">liability</field>
+        <field name="kind">profit</field>
+        <field name="partner_scope">any</field>
+    </record>
+    <record id="line_cta" model="account.consolidation.line">
+        <field name="code">cta</field>
+        <field name="name">Translation reserve</field>
+        <field name="sequence">270</field>
+        <field name="section">liability</field>
+        <field name="kind">cta</field>
+        <field name="partner_scope">any</field>
+    </record>
+</odoo>

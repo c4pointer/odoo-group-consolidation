@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_consolidation_group_list" model="ir.ui.view">
+        <field name="name">account.consolidation.group.list</field>
+        <field name="model">account.consolidation.group</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="company_id"/>
+                <field name="member_company_ids" widget="many2many_tags"/>
+                <field name="start_date"/>
+                <field name="auto_run"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_consolidation_group_form" model="ir.ui.view">
+        <field name="name">account.consolidation.group.form</field>
+        <field name="model">account.consolidation.group</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="e.g. Delta Group"/></h1>
+                    </div>
+                    <group>
+                        <group string="Companies">
+                            <field name="company_id"/>
+                            <field name="currency_id"/>
+                            <field name="member_company_ids" widget="many2many_tags"/>
+                        </group>
+                        <group string="Eliminations">
+                            <field name="journal_id"/>
+                            <field name="clearing_account_id"/>
+                            <field name="transit_account_id"/>
+                            <field name="start_date"/>
+                            <field name="auto_run"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Rates" name="rates">
+                            <field name="rate_ids">
+                                <list editable="bottom">
+                                    <field name="date"/>
+                                    <field name="currency_id"/>
+                                    <field name="average_rate"/>
+                                    <field name="closing_rate"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Runs" name="runs">
+                            <field name="run_ids" readonly="True">
+                                <list>
+                                    <field name="date_from" widget="date" options="{'format': 'MMMM yyyy'}"/>
+                                    <field name="state"/>
+                                    <field name="clearing_balance"/>
+                                    <field name="run_at"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_consolidation_group" model="ir.actions.act_window">
+        <field name="name">Consolidation groups</field>
+        <field name="res_model">account.consolidation.group</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

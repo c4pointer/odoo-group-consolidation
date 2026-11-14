@@ -72,6 +72,7 @@ class DeltaScenario:
         self.partners = {}
         self.usd_bank = {}
         self.moves = {}
+        self.consolidation_group = None
 
     # ------------------------------------------------------------------ build
 
@@ -83,6 +84,7 @@ class DeltaScenario:
         self._post_delta_ukraine()
         self._post_delta_poland()
         self._post_intercompany()
+        self._setup_consolidation()
         return self
 
     # ------------------------------------------------------------- reference data
@@ -392,6 +394,43 @@ class DeltaScenario:
             pl_receipt,
             self.moves["pl_inv_1"] | self.moves["pl_inv_2"] | self.moves["pl_refund"],
             "asset_receivable",
+        )
+
+    # ------------------------------------------------------------ consolidation
+
+    def _setup_consolidation(self):
+        """The consolidation group with the rates of oracle section 1, January to April."""
+        group_company = self.companies["group"]
+        rates = []
+        for currency in (self.uah, self.pln):
+            month_ends = sorted(RATES[currency.name])
+            # The average for a month is the previous month-end rate (see RATES above).
+            for previous, month_end in zip(month_ends, month_ends[1:], strict=False):
+                rates.append(
+                    Command.create(
+                        {
+                            "currency_id": currency.id,
+                            "date": month_end,
+                            "average_rate": RATES[currency.name][previous],
+                            "closing_rate": RATES[currency.name][month_end],
+                        }
+                    )
+                )
+        self.consolidation_group = self.env["account.consolidation.group"].create(
+            {
+                "name": "Delta Group",
+                "company_id": group_company.id,
+                "member_company_ids": [
+                    Command.set([self.companies[k].id for k in ("us", "ua", "pl")])
+                ],
+                "journal_id": self.env["account.journal"]
+                .search([("company_id", "=", group_company.id), ("code", "=", "ELIM")])
+                .id,
+                "clearing_account_id": self._account(group_company, ACC_IC_CLEARING).id,
+                "transit_account_id": self._account(group_company, ACC_CASH_IN_TRANSIT).id,
+                "start_date": date(2026, 1, 1),
+                "rate_ids": rates,
+            }
         )
 
     # ---------------------------------------------------------------- helpers

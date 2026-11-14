@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_consolidation_reporting" name="Consolidation" parent="account.menu_finance_reports"
+              sequence="30" groups="account.group_account_readonly">
+        <menuitem id="menu_consolidation_run" action="action_consolidation_run" sequence="10"/>
+        <menuitem id="menu_consolidation_result" action="action_consolidation_result" sequence="20"/>
+    </menuitem>
+    <menuitem id="menu_consolidation_configuration" name="Consolidation" parent="account.menu_finance_configuration"
+              sequence="90" groups="account.group_account_manager">
+        <menuitem id="menu_consolidation_group" action="action_consolidation_group" sequence="10"/>
+        <menuitem id="menu_consolidation_line" action="action_consolidation_line" sequence="20"/>
+    </menuitem>
+</odoo>

@@ -13,8 +13,8 @@ Where the task does not say, this is what was assumed. One line each.
 ## Currencies and translation
 
 6. Group reporting currency is USD.
-7. P&L lines are translated at the monthly average rate, balance sheet lines at the month-end closing rate, share capital at the historical rate; the difference goes to a translation reserve (CTA) in equity.
-8. Lines denominated in USD are taken at their USD amount (`amount_currency`) and not re-translated; for monetary items this equals closing-rate translation after remeasurement, and it keeps intercompany amounts exact. Exchange differences carry no USD amount, so they are translated from local currency.
+7. P&L lines are translated at the monthly average rate and balance sheet lines at the month-end closing rate; the difference goes to a translation reserve (CTA) in equity. Share capital should be at the historical rate; the module translates it at closing, which is correct here only because the subsidiaries have no share capital (assumption 4) and Delta US's is already in USD.
+8. Lines denominated in USD are taken at their USD amount (`amount_currency`), decided per journal item, and not re-translated; for monetary items this equals closing-rate translation after remeasurement, and it keeps intercompany amounts exact. Exchange differences carry no USD amount, so they are translated from local currency.
 9. Average and closing rates are entered per period in the consolidation module, separately from Odoo's daily transaction rates.
 10. Demo rates are fictional round numbers chosen so a controller can check the figures by hand; Odoo holds one rate per month end, and because Odoo 20 applies a rate from the day after its date, each month-end rate is used for the next month's transactions and serves as that month's average.
 11. Unrealised FX revaluation is not booked in the demo (Community has no revaluation wizard); realised exchange differences (Poland's receipt on 1 April) and any revaluation a company books stay in the group P&L, as IAS 21.45 requires for intercompany monetary items.
@@ -22,7 +22,7 @@ Where the task does not say, this is what was assumed. One line each.
 
 ## Intercompany
 
-13. An intercompany line is any journal item whose partner is another group company's partner (`res.company.partner_id`).
+13. An intercompany line is any journal item whose partner, or its commercial partner (a contact of the company), is another group company's partner (`res.company.partner_id`).
 14. All intercompany invoices, credit notes, payments and the loan are in USD.
 15. Intercompany services carry no VAT (cross-border B2B services; tax is out of scope).
 16. The loan of USD 200,000 is interest-free and is not repaid in the period; Delta Ukraine receives it on a USD bank account.
@@ -41,6 +41,12 @@ Where the task does not say, this is what was assumed. One line each.
 ## Books and reporting
 
 25. Odoo Community has no Profit and Loss report; "the standard P&L shows a company's real books" is read as: anything filtered to a real company (journal items, standard analyses) never shows eliminations.
-26. All companies use Odoo's generic chart of accounts; report lines are derived from the account type plus the intercompany flag.
+26. All companies use Odoo's generic chart of accounts, so one mapping serves the group: each report line lists account code prefixes and a partner scope (any, external, group companies); the longest matching prefix wins. The mapping is data a controller can edit.
 27. To keep the demo small, payroll is accrued and not paid, and external invoices and bills stay unpaid.
 28. Intercompany payments are recorded as bank journal entries reconciled with the invoices (Community creates no entry for a payment without an outstanding account). Odoo 20 then labels the February invoices, settled by the credit note plus such an entry, as "Reversed" rather than "Paid"; balances and residual amounts are unaffected.
+
+## Running
+
+29. Months close in order: a month runs only when every earlier month since the group's start date has run, and an earlier month runs again only after the later months are reset.
+30. Running a month again deletes and re-creates that month's elimination entries and results. The consolidation company is a working ledger, not a statutory one, so it must not use Odoo's restrictive audit trail; a lock date in it stops re-runs, with no per-user exception. The scheduled action only runs a month that has not run yet; it never re-runs signed-off figures.
+31. A journal item on an account that no report line reads stops the run with the account codes, rather than being left out of the group figures.

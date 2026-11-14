@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_consolidation_run_list" model="ir.ui.view">
+        <field name="name">account.consolidation.run.list</field>
+        <field name="model">account.consolidation.run</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state == 'draft'">
+                <field name="group_id"/>
+                <field name="date_from" widget="date" options="{'format': 'MMMM yyyy'}"/>
+                <field name="state" widget="badge" decoration-success="state == 'done'"/>
+                <field name="clearing_balance" decoration-danger="clearing_balance != 0"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="run_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_consolidation_run_form" model="ir.ui.view">
+        <field name="name">account.consolidation.run.form</field>
+        <field name="model">account.consolidation.run</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_run" type="object" string="Run consolidation" class="btn-primary"
+                            confirm="Elimination entries of this month will be replaced. Continue?"/>
+                    <button name="action_reset" type="object" string="Reset" invisible="state != 'done'"
+                            confirm="Delete this month's elimination entries and results?"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_results" type="object" class="oe_stat_button" icon="fa-table"
+                                invisible="state != 'done'" string="Report"/>
+                        <button name="action_view_moves" type="object" class="oe_stat_button" icon="fa-book"
+                                invisible="move_count == 0">
+                            <field name="move_count" widget="statinfo" string="Eliminations"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="True"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="group_id" readonly="state == 'done'"/>
+                            <field name="date_from" readonly="state == 'done'"/>
+                            <field name="date_to"/>
+                        </group>
+                        <group string="Controls">
+                            <field name="currency_id" invisible="True"/>
+                            <field name="clearing_balance" decoration-danger="clearing_balance != 0"/>
+                            <field name="run_at"/>
+                        </group>
+                    </group>
+                    <separator string="Intercompany differences at month end"/>
+                    <field name="difference_ids">
+                        <list>
+                            <field name="first_company_id"/>
+                            <field name="second_company_id"/>
+                            <field name="timing_difference" sum="Total"/>
+                            <field name="cash_in_transit" sum="Total"/>
+                            <field name="currency_id" column_invisible="True"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_consolidation_run" model="ir.actions.act_window">
+        <field name="name">Consolidation runs</field>
+        <field name="res_model">account.consolidation.run</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p>Create a run for a month and press Run consolidation. Months close in order.</p>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_consolidation_line_list" model="ir.ui.view">
+        <field name="name">account.consolidation.line.list</field>
+        <field name="model">account.consolidation.line</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="section"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="kind"/>
+                <field name="account_prefixes" required="kind == 'accounts'"/>
+                <field name="partner_scope"/>
+                <field name="active" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_consolidation_line" model="ir.actions.act_window">
+        <field name="name">Consolidation lines</field>
+        <field name="res_model">account.consolidation.line</field>
+        <field name="view_mode">list</field>
+        <field name="help" type="html">
+            <p>Each line reads the accounts whose code starts with one of its prefixes.
+               The longest matching prefix wins; the partner scope separates intercompany
+               items from external ones.</p>
+        </field>
+    </record>
+</odoo>

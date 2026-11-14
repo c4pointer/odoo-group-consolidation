@@ -6,7 +6,17 @@
     "author": "Oleg Zubak",
     "license": "LGPL-3",
     "depends": ["account"],
-    "data": [],
+    "data": [
+        "security/ir.access.csv",
+        "data/consolidation_line_data.xml",
+        "data/ir_cron_data.xml",
+        "views/consolidation_line_views.xml",
+        "views/consolidation_group_views.xml",
+        "views/consolidation_result_views.xml",
+        "views/consolidation_run_views.xml",
+        "views/account_move_views.xml",
+        "views/menus.xml",
+    ],
     "installable": True,
     "application": False,
 }

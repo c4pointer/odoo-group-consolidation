@@ -1,0 +1,18 @@
+id,name,model_id,group_id/id,operation,domain
+access_consolidation_group_reader,account.consolidation.group reader,account.consolidation.group,account.group_account_readonly,r,
+access_consolidation_group_manager,account.consolidation.group manager,account.consolidation.group,account.group_account_manager,crud,
+consolidation_group_company,account.consolidation.group multi-company,account.consolidation.group,,crud,"[('company_id', 'in', company_ids)]"
+access_consolidation_rate_reader,account.consolidation.rate reader,account.consolidation.rate,account.group_account_readonly,r,
+access_consolidation_rate_manager,account.consolidation.rate manager,account.consolidation.rate,account.group_account_manager,crud,
+consolidation_rate_company,account.consolidation.rate multi-company,account.consolidation.rate,,crud,"[('company_id', 'in', company_ids)]"
+access_consolidation_line_reader,account.consolidation.line reader,account.consolidation.line,account.group_account_readonly,r,
+access_consolidation_line_manager,account.consolidation.line manager,account.consolidation.line,account.group_account_manager,crud,
+access_consolidation_run_reader,account.consolidation.run reader,account.consolidation.run,account.group_account_readonly,r,
+access_consolidation_run_manager,account.consolidation.run manager,account.consolidation.run,account.group_account_manager,crud,
+consolidation_run_company,account.consolidation.run multi-company,account.consolidation.run,,crud,"[('company_id', 'in', company_ids)]"
+access_consolidation_result_reader,account.consolidation.result reader,account.consolidation.result,account.group_account_readonly,r,
+access_consolidation_result_manager,account.consolidation.result manager,account.consolidation.result,account.group_account_manager,crud,
+consolidation_result_company,account.consolidation.result multi-company,account.consolidation.result,,crud,"[('company_id', 'in', company_ids)]"
+access_consolidation_difference_reader,account.consolidation.difference reader,account.consolidation.difference,account.group_account_readonly,r,
+access_consolidation_difference_manager,account.consolidation.difference manager,account.consolidation.difference,account.group_account_manager,crud,
+consolidation_difference_company,account.consolidation.difference multi-company,account.consolidation.difference,,crud,"[('company_id', 'in', company_ids)]"
