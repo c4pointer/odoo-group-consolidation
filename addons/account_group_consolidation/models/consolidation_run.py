@@ -114,7 +114,9 @@ class AccountConsolidationRun(models.Model):
             "account_group_consolidation.action_consolidation_result"
         )
         action["domain"] = [("run_id", "=", self.id)]
-        action["context"] = {"search_default_group_by_line": 1}
+        # No search grouping: the pivot's own rows (section, then line) give a subtotal per
+        # section, so profit, assets and liabilities are never added together.
+        action["context"] = {}
         return action
 
     def action_view_moves(self):

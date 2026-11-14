@@ -480,3 +480,25 @@ class TestConsolidation(DeltaCase):
         other = self.env["res.company"].create({"name": "Unrelated Ltd"})
         with self.assertRaises(AccessError):
             self.group.with_user(user).write({"member_company_ids": [Command.link(other.id)]})
+
+    def test_menus_visible_to_accounting_administrator(self):
+        # The README's controller steps start from these menus; in Odoo 20 the accounting
+        # administrator group does not imply the read-only accounting group.
+        user = new_test_user(
+            self.env,
+            "accounting_admin",
+            groups="base.group_user,account.group_account_manager",
+            company_id=self.companies["us"].id,
+            company_ids=[Command.set((self.members | self.elim_company).ids)],
+        )
+        visible = self.env["ir.ui.menu"].with_user(user)._visible_menu_ids()
+        for xmlid in (
+            "account_group_consolidation.menu_consolidation_reporting",
+            "account_group_consolidation.menu_consolidation_configuration",
+            "account_group_consolidation.menu_consolidation_run",
+            "account_group_consolidation.menu_consolidation_result",
+            "account_group_consolidation.menu_consolidation_group",
+            "account_group_consolidation.menu_consolidation_line",
+        ):
+            with self.subTest(menu=xmlid):
+                self.assertIn(self.env.ref(xmlid).id, visible)

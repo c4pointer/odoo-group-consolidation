@@ -5,8 +5,8 @@
         <field name="model">account.consolidation.run</field>
         <field name="arch" type="xml">
             <list decoration-muted="state == 'draft'">
-                <field name="group_id"/>
-                <field name="date_from" widget="date" options="{'format': 'MMMM yyyy'}"/>
+                <field name="name"/>
+                <field name="date_from" optional="hide"/>
                 <field name="state" widget="badge" decoration-success="state == 'done'"/>
                 <field name="clearing_balance" decoration-danger="clearing_balance != 0"/>
                 <field name="currency_id" column_invisible="True"/>

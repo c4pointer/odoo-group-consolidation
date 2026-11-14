@@ -125,12 +125,15 @@ Consolidation. The figures below are for the demo data, March 2026, in USD.
    2 April); Delta US and Delta Poland by 40,000.00 cash in transit (paid on
    31 March, received on 1 April).
 
-4. **Read the group results.** Press **Report** on the run. Each row is a
-   report line, each column a company in USD, the Eliminations column shows
-   what was removed, and **Total** is the group. Intercompany revenue,
-   costs, receivables, payables and loans are 0.00 in the total. March group
-   profit is 227,500.00 and total assets are 2,152,450.80. For the year to date,
-   open Measures and add **Year to date**.
+4. **Read the group results.** Press **Report** on the run. Rows are grouped
+   into Profit and loss, Assets, and Liabilities and equity, each with its
+   subtotal; each column is a company in USD, the Delta Group Consolidation
+   column shows the eliminations, and the last column (**Total**) is the group.
+   Read the section subtotals, not the top Total row, which adds the sections
+   together. Intercompany revenue, costs, receivables, payables and loans are
+   0.00 in the group column. March group profit is 227,500.00, and assets and
+   liabilities and equity are both 2,152,450.80. For the year to date, open
+   Measures and add **Year to date**.
 
 5. **Open an elimination as an auditor.** Press **Eliminations** on the run.
    Each entry is in the Delta Group Consolidation company, journal
