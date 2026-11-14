@@ -1,32 +1,100 @@
 # How this was built with AI
 
-The agent is Claude Code. This page describes the harness around it: what the
-agent may do, what it may not do, and how its output is verified.
+The agent is Claude Code (Claude Opus 5.5). This page describes the harness
+around it: what the agent may do, what it may not do, how its output was
+verified, and who did what.
 
 ## The harness
 
 | Part | File | Purpose |
 |---|---|---|
 | Project instructions | `CLAUDE.md` | Scope, hard rules, commands and domain glossary loaded into every session |
-| Oracle guard | `.claude/hooks/guard_oracle.py` | Blocks the agent from editing the hand-computed expected figures |
+| Oracle guard | `.claude/hooks/guard_oracle.py` | Blocks the agent from editing, staging or committing the hand-computed expected figures, the settings and the guard itself |
 | Lint on write | `.claude/hooks/lint_python.py` | Runs ruff after every Python edit and returns findings to the agent |
-| Hook tests | `.claude/hooks/test_hooks.py` | `make harness` proves the guard blocks writes and allows reads |
+| Hook tests | `.claude/hooks/test_hooks.py` | `make harness` proves the guard blocks writes and shell bypasses and allows reads |
 | Permissions | `.claude/settings.json` | Allows the routine commands; denies amend, rebase and force push |
 | One-command checks | `Makefile` | `make test` runs the module tests on a fresh database and fails loudly |
 
-## How the output is verified
+## How the output was verified
 
-1. **Independent oracle.** The expected figures in `docs/expected_numbers.md`
-   are computed by hand from the scenario before the code exists. Tests compare
-   the module's numbers with them. The agent cannot edit that file.
-2. **Red before green.** Tests are committed before the logic that makes them
-   pass, so the history shows each edge case failing first.
-3. **Review.** Each step gets an independent review by a fresh agent with no
-   access to the author's reasoning, then a human review of the diff.
-4. **Running system.** Numbers are also checked in the running database, both
-   through the UI and by querying it.
+1. **An oracle the agent cannot change.** The expected figures in
+   `docs/expected_numbers.md` were worked out from the scenario before the
+   module code existed. Tests compare the module's numbers with them. The guard
+   stops the agent from editing or even staging these files, so a failing test
+   cannot be fixed by moving the expected number.
+2. **Red before green, checked by running.** Tests were committed before the
+   code that makes them pass. Before each commit the staged tree was exported
+   on its own (`git checkout-index`) and tested, so a commit marked red was seen
+   failing for the stated reason, and a commit marked green was seen passing.
+3. **Tests of the tests.** Every new test was first seen failing against the
+   code it guards. Two tests passed on buggy code at first and were rewritten
+   until they failed. Three deliberate bugs (balance sheet at the average rate,
+   exchange differences taken at zero, no partner-scope filter) were each caught
+   by at least one test.
+4. **Independent review.** A fresh subagent with the task, the code and the
+   oracle, but not the author's reasoning, reviewed the module before its commit
+   and reported ten findings. An automated security review ran after the push.
+5. **A fresh install.** The repository was cloned from GitHub into an empty
+   directory and installed with `make demo` under its own Compose project, then
+   the controller steps from the README were run through the API as the `admin`
+   user. The human walks through the same steps in the UI.
+
+## What each check caught
+
+| Check | Found |
+|---|---|
+| Independent review (subagent) | 10 findings: a document posted into a closed month stayed in the group; a full offset within a month at two daily rates left a phantom USD amount; the scheduled action re-ran signed-off months; a contact of a group company was not intercompany; three smaller code issues (rate dates, lock-date exceptions, the report summing across runs) and three places where the docs and the code disagreed. All fixed in `2a31ac6` |
+| Red-state check on new tests | Two tests that passed on the buggy code: one masked by a real March invoice, one by Odoo setting the commercial partner on invoice lines |
+| Automated security review | The scheduled action runs as superuser; could a manager configure a group over companies they cannot read? Odoo 20 already refuses it; the test in `59b9153` pins that |
+| Fresh install from GitHub | `admin` could not see any Delta company, so no README step could be followed (fixed in `5dfa6b9`); a wrong UAH rate and a wrong menu path in the README draft. The tests could not catch these: they run as the superuser |
+| Oracle guard | Blocked the agent's own `git add` of the oracle; the human committed it |
 
 ## Who did what
 
-Filled in as the work progresses; commits made with the agent carry a
-`Co-Authored-By` trailer.
+**The human (Oleg Zubak)**
+
+- Set the scope: Odoo 20 Community only, a public repository, a local Docker
+  runtime first.
+- Owns the oracle: the drafts were handed over for review, and only the human
+  could put them into the repository (`b54baf9`).
+- Applied the guard changes the agent prepared as a patch, because the guard
+  blocks the agent from editing itself (`4aaad50`).
+- Signs every commit with GPG, approves the agent's permissions, and walks
+  through the demo in the UI.
+
+**The agent (Claude Code)**
+
+- Wrote the module, the Delta scenario, the demo module, the tests, the hooks
+  and their tests, and drafted every document, including the worked
+  calculation behind the oracle.
+- Ran lint and tests before each commit, the red-state checks, the mutation
+  checks and the fresh install.
+
+**Subagents and automated checks**
+
+- A fresh subagent did the independent review.
+- The security-guidance plugin reviewed the pushed changes.
+- ruff ran after every Python edit.
+
+**Commit by commit**
+
+| Commit | By |
+|---|---|
+| `d348680` to `10a379e` except `4aaad50` | Agent, with a `Co-Authored-By` trailer |
+| `4aaad50` | Human, applying the agent's patch to the guard |
+| `b54baf9` | Human: the oracle |
+| `1324712`, `fadef9d`, `1217f91`, `2a31ac6`, `59b9153`, `5dfa6b9`, `a1641b9` | Agent; the trailer was left out by mistake, and the history is not rewritten to add it |
+| `bb977a6` | Committed from the IDE while the agent was rewriting that test; `59b9153` simplified it two minutes later |
+
+## Known limits
+
+- The worked calculation behind the oracle was drafted by the same model that
+  wrote the code. What keeps it independent: it was derived from the scenario
+  before any module code existed, it is plain arithmetic a person can check
+  line by line, and the agent cannot change it afterwards.
+- The guard matches command text, so a path built by shell expansion would pass.
+  It stops accidental goalpost-moving, not a hostile agent; every change to the
+  oracle is still visible in `git log`.
+- The module tests run as the superuser, so they do not see per-user access.
+  The fresh-install check covers that for the demo; a test as a restricted user
+  covers group configuration.
