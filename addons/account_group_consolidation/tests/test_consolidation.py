@@ -7,9 +7,10 @@ created once per class, the way a controller closes the months in order.
 
 from datetime import date
 
+from odoo import Command
 from odoo.addons.account_group_consolidation.scenario import delta
-from odoo.exceptions import UserError
-from odoo.tests import freeze_time, tagged
+from odoo.exceptions import AccessError, UserError
+from odoo.tests import freeze_time, new_test_user, tagged
 
 from .common import DeltaCase, month_bounds
 
@@ -451,3 +452,34 @@ class TestConsolidation(DeltaCase):
             self.env["account.consolidation.group"]._cron_run_previous_month()
             april = self.group.run_ids.filtered(lambda r: r.date_from == date(2026, 4, 1))
             self.assertEqual(april.state, "done")
+
+    def test_members_need_the_configuring_user_access(self):
+        # The scheduled action runs as superuser and skips the run's own access check,
+        # so who may consolidate a company is decided when the group is configured:
+        # Odoo refuses to link companies the user cannot read. Guards against a sudo()
+        # creeping into the configuration path.
+        user = new_test_user(
+            self.env,
+            "group_ledger_only",
+            groups="account.group_account_manager",
+            company_id=self.elim_company.id,
+            company_ids=[Command.set(self.elim_company.ids)],
+        )
+        values = {
+            "name": "Shadow group",
+            "company_id": self.elim_company.id,
+            "member_company_ids": [Command.set(self.members.ids)],
+            "journal_id": self.group.journal_id.id,
+            "clearing_account_id": self.group.clearing_account_id.id,
+            "transit_account_id": self.group.transit_account_id.id,
+            "start_date": date(2026, 1, 1),
+            "auto_run": True,
+        }
+        with self.assertRaises(AccessError):
+            self.env["account.consolidation.group"].with_user(user).create(values)
+        self.group.auto_run = False
+        other = self.env["res.company"].create({"name": "Unrelated Ltd", "currency_id": self.group.currency_id.id})
+        user.company_ids = [Command.link(other.id)]
+        user.company_ids = [Command.unlink(other.id)]
+        with self.assertRaises(AccessError):
+            self.group.with_user(user).write({"member_company_ids": [Command.link(other.id)]})
