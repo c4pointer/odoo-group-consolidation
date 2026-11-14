@@ -79,3 +79,9 @@ Non-negotiable business requirements:
 - Demo data is not loaded by default: `--with-demo` on a new database, or
   `odoo module force-demo` on an existing one.
 - Server source inside the container: `/usr/lib/python3/dist-packages/odoo`.
+- Access rights and record rules are one model, `ir.access`, loaded from
+  `security/ir.access.csv` (`id,name,model_id,group_id/id,operation,domain`):
+  a row with a group grants `operation` (e.g. `r`, `crud`); a row without a group
+  restricts with its domain. `ir.model.access` and `ir.rule` no longer exist.
+- Account codes are company-dependent: read them with `account.with_company(company).code`.
+- Model constraints are `models.Constraint("unique(...)", "message")` class attributes.
