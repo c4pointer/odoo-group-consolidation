@@ -43,3 +43,4 @@ Where the task does not say, this is what was assumed. One line each.
 25. Odoo Community has no Profit and Loss report; "the standard P&L shows a company's real books" is read as: anything filtered to a real company (journal items, standard analyses) never shows eliminations.
 26. All companies use Odoo's generic chart of accounts; report lines are derived from the account type plus the intercompany flag.
 27. To keep the demo small, payroll is accrued and not paid, and external invoices and bills stay unpaid.
+28. Intercompany payments are recorded as bank journal entries reconciled with the invoices (Community creates no entry for a payment without an outstanding account). Odoo 20 then labels the February invoices, settled by the credit note plus such an entry, as "Reversed" rather than "Paid"; balances and residual amounts are unaffected.
