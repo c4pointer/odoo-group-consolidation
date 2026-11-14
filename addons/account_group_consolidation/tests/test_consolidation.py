@@ -477,9 +477,6 @@ class TestConsolidation(DeltaCase):
         }
         with self.assertRaises(AccessError):
             self.env["account.consolidation.group"].with_user(user).create(values)
-        self.group.auto_run = False
-        other = self.env["res.company"].create({"name": "Unrelated Ltd", "currency_id": self.group.currency_id.id})
-        user.company_ids = [Command.link(other.id)]
-        user.company_ids = [Command.unlink(other.id)]
+        other = self.env["res.company"].create({"name": "Unrelated Ltd"})
         with self.assertRaises(AccessError):
             self.group.with_user(user).write({"member_company_ids": [Command.link(other.id)]})
