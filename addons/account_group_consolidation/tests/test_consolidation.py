@@ -357,6 +357,38 @@ class TestConsolidation(DeltaCase):
         with self.assertRaisesRegex(UserError, "February 2026"):
             self.runs[3].action_run()
 
+    def test_balance_sheet_change_in_a_closed_month_is_refused(self):
+        """Delta US's 31 March payment moved to 1 April after March closed.
+
+        No profit or loss moves, yet March's cash in transit no longer matches the books.
+        """
+        payment = self.env["account.move"].search(
+            [
+                ("company_id", "=", self.companies["us"].id),
+                ("ref", "=", "Payment to Delta Poland: January and February net of credit note"),
+            ]
+        )
+        self.assertEqual(len(payment), 1)
+        payment.button_draft()
+        payment.date = date(2026, 4, 1)
+        payment.action_post()
+        with self.assertRaisesRegex(UserError, "March 2026"):
+            self._run(4)
+
+    def test_rates_of_a_consolidated_month_are_locked(self):
+        def uah(month):
+            return self.group.rate_ids.filtered(
+                lambda rate: rate.currency_id.name == "UAH" and rate.date.month == month
+            )
+
+        with self.assertRaisesRegex(UserError, "March 2026"):
+            uah(3).average_rate = 41.0
+        with self.assertRaisesRegex(UserError, "March 2026"):
+            uah(3).unlink()
+        uah(4).average_rate = 43.5  # April is not consolidated yet
+        self.runs[3].action_reset()
+        uah(3).average_rate = 41.0  # editable again once March is reset
+
     def test_full_offset_within_a_month_stays_exact(self):
         """Invoice and full credit note at different daily rates leave no USD behind.
 

@@ -13,6 +13,7 @@ from datetime import date
 
 from odoo import Command
 from odoo.addons.account_group_consolidation.scenario import delta
+from odoo.exceptions import UserError
 from odoo.tests import tagged
 
 from .common import DeltaCase
@@ -71,15 +72,24 @@ GROUP_MARCH = {
 }
 
 
-@tagged("post_install", "-at_install")
-class TestNewMember(DeltaCase):
+class GermanyCase(DeltaCase):
+    """January and February closed, then Delta Germany joins and March is run.
+
+    Subclasses post Germany's March documents in `_post_march`.
+    """
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.group = cls.scenario.consolidation_group
         cls.closed = {month: cls._run(date(2026, month, 1)) for month in (1, 2)}
         cls.germany = cls._add_germany()
+        cls._post_march()
         cls.march = cls._run(date(2026, 3, 1))
+
+    @classmethod
+    def _post_march(cls):
+        raise NotImplementedError
 
     @classmethod
     def _run(cls, first):
@@ -125,8 +135,20 @@ class TestNewMember(DeltaCase):
             }
         )
 
+        return germany
+
+    def _group_columns(self):
+        return self.group.member_company_ids | self.group.company_id
+
+
+@tagged("post_install", "-at_install")
+class TestNewMember(GermanyCase):
+    @classmethod
+    def _post_march(cls):
+        scenario = cls.scenario
+        eur = cls.env.ref("base.EUR")
         scenario._invoice(
-            germany,
+            cls.germany,
             "out_invoice",
             "de_client",
             date(2026, 3, 15),
@@ -136,7 +158,7 @@ class TestNewMember(DeltaCase):
             "Engineering services to German client",
         )
         invoice = scenario._invoice(
-            germany,
+            cls.germany,
             "out_invoice",
             "us",
             date(2026, 3, 20),
@@ -156,10 +178,6 @@ class TestNewMember(DeltaCase):
             "Engineering services from Delta Germany",
             ref=invoice.name,
         )
-        return germany
-
-    def _group_columns(self):
-        return self.group.member_company_ids | self.group.company_id
 
     def test_germany_is_translated(self):
         self.assertFigures(self.march.get_figures(self.germany), GERMANY_MARCH, "Germany USD")
@@ -225,3 +243,100 @@ class TestNewMember(DeltaCase):
                     self.expected.GROUP_PL[month]["net_profit"],
                     delta=self.expected.TOLERANCE,
                 )
+
+    def test_joining_with_history_in_a_closed_month_is_refused(self):
+        """A February pair booked by both sides nets to zero; the books check still sees it."""
+        eur, usd = self.env.ref("base.EUR"), self.scenario.usd
+        self.group.rate_ids = [
+            Command.create(
+                {
+                    "currency_id": eur.id,
+                    "date": date(2026, 2, 28),
+                    "average_rate": EUR_AVERAGE_MARCH,
+                    "closing_rate": EUR_AVERAGE_MARCH,
+                }
+            )
+        ]
+        invoice = self.scenario._invoice(
+            self.germany,
+            "out_invoice",
+            "us",
+            date(2026, 2, 20),
+            10_000.0,
+            usd,
+            delta.ACC_REVENUE,
+            "February services",
+        )
+        self.scenario._invoice(
+            self.companies["us"],
+            "in_invoice",
+            "de",
+            date(2026, 2, 20),
+            10_000.0,
+            usd,
+            delta.ACC_EXPENSE,
+            "February services from Delta Germany",
+            ref=invoice.name,
+        )
+        with self.assertRaisesRegex(UserError, "February 2026"):
+            self.march.action_run()
+
+
+@tagged("post_install", "-at_install")
+class TestThirdCurrencyIntercompany(GermanyCase):
+    """Germany invoices Delta US in EUR, neither the group's currency nor Delta US's.
+
+    By hand, in USD: EUR 27,600 / 0.92 average = 30,000.00 revenue and cost;
+    EUR 27,600 / 0.90 closing = 30,666.67 receivable and payable at 31 March.
+    Delta US booked the bill at 30,000.00; the 666.67 goes to its translation
+    reserve and the opposite 666.67 to Germany's, so the group is the oracle's March.
+    """
+
+    @classmethod
+    def _post_march(cls):
+        eur = cls.env.ref("base.EUR")
+        invoice = cls.scenario._invoice(
+            cls.germany,
+            "out_invoice",
+            "us",
+            date(2026, 3, 20),
+            27_600.0,
+            eur,
+            delta.ACC_REVENUE,
+            "Engineering services, invoiced in EUR",
+        )
+        cls.scenario._invoice(
+            cls.companies["us"],
+            "in_invoice",
+            "de",
+            date(2026, 3, 20),
+            27_600.0,
+            eur,
+            delta.ACC_EXPENSE,
+            "Engineering services from Delta Germany, in EUR",
+            ref=invoice.name,
+        )
+
+    def test_both_sides_at_the_group_rate(self):
+        germany = self.march.get_figures(self.germany)
+        us = self.march.get_figures(self.companies["us"])
+        self.assertAlmostEqual(germany["ic_revenue"], 30_000.00, delta=0.01)
+        self.assertAlmostEqual(germany["ic_receivables"], 30_666.67, delta=0.01)
+        self.assertAlmostEqual(germany["cta"], 666.67, delta=0.01)
+        # 110,000.00 owed to Ukraine and Poland, plus 30,666.67 owed to Germany.
+        self.assertAlmostEqual(us["ic_payables"], 140_666.67, delta=0.01)
+        self.assertAlmostEqual(us["cta"], -666.67, delta=0.01)
+
+    def test_pair_eliminates_with_no_difference(self):
+        us = self.companies["us"]
+        pair = self.march.difference_ids.filtered(
+            lambda row: {row.first_company_id, row.second_company_id} == {us, self.germany}
+        )
+        self.assertAlmostEqual(pair.timing_difference, 0.0, delta=0.01)
+        self.assertAlmostEqual(pair.cash_in_transit, 0.0, delta=0.01)
+        self.assertAlmostEqual(self.march.clearing_balance, 0.0, delta=0.01)
+
+    def test_group_is_the_oracle_march(self):
+        figures = self.march.get_figures(self._group_columns())
+        self.assertFigures(figures, self.expected.GROUP_PL[3], "Group P&L")
+        self.assertFigures(figures, self.expected.GROUP_BS_MARCH["group"], "Group balance sheet")
