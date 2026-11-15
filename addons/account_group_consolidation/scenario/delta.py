@@ -111,16 +111,8 @@ class DeltaScenario:
             "pl": ("Delta Poland sp. z o.o.", self.pln, "base.pl"),
             "group": ("Delta Group Consolidation", self.usd, "base.us"),
         }
-        chart = self.env["account.chart.template"]
         for key, (name, currency, country) in specs.items():
-            company = self.env["res.company"].create(
-                {"name": name, "currency_id": currency.id, "country_id": self.env.ref(country).id}
-            )
-            chart.try_loading("generic_coa", company, install_demo=False)
-            # Loading a chart resets the currency to the template's fiscal country (US for
-            # the generic chart); restore the company's own currency before any entry exists.
-            company.currency_id = currency
-            self.companies[key] = company
+            self.add_company(key, name, currency, country)
 
         self._create_extra_accounts()
         for key in ("ua", "pl"):
@@ -142,9 +134,21 @@ class DeltaScenario:
             }
         )
 
-        user = self.env.user
-        user.company_ids = [Command.link(c.id) for c in self.companies.values()]
-        user.company_id = self.companies["us"]
+        self.env.user.company_id = self.companies["us"]
+
+    def add_company(self, key, name, currency, country):
+        """Create a company on Odoo's generic chart; also used to add a member after build()."""
+        company = self.env["res.company"].create(
+            {"name": name, "currency_id": currency.id, "country_id": self.env.ref(country).id}
+        )
+        self.env["account.chart.template"].try_loading("generic_coa", company, install_demo=False)
+        # Loading a chart resets the currency to the template's fiscal country (US for
+        # the generic chart); restore the company's own currency before any entry exists.
+        company.currency_id = currency
+        self.env.user.company_ids = [Command.link(company.id)]
+        self.companies[key] = company
+        self.partners[key] = company.partner_id
+        return company
 
     def _create_extra_accounts(self):
         needed = {
@@ -167,8 +171,6 @@ class DeltaScenario:
 
     def _setup_partners(self):
         partner = self.env["res.partner"]
-        for key in ("us", "ua", "pl"):
-            self.partners[key] = self.companies[key].partner_id
         externals = {
             "us_client": "Northwind Health (US client)",
             "us_vendor": "Cumulus Cloud Hosting (US vendor)",
