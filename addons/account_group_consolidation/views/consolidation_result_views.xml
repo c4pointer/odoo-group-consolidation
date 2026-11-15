@@ -58,11 +58,19 @@
         <field name="name">Consolidated report</field>
         <field name="res_model">account.consolidation.result</field>
         <field name="view_mode">pivot,list</field>
-        <!-- Balance sheet figures must not add up across months: start split by run. -->
-        <field name="context">{'search_default_group_by_run': 1}</field>
         <field name="help" type="html">
             <p>Run a consolidation to see the group profit and loss and balance sheet.
                Columns are the companies and the eliminations; the total is the group.</p>
         </field>
+    </record>
+
+    <!-- The menu opens one month, the latest closed, never a total over months. -->
+    <record id="action_open_latest_report" model="ir.actions.server">
+        <field name="name">Consolidated report</field>
+        <field name="model_id" ref="model_account_consolidation_run"/>
+        <field name="state">code</field>
+        <!-- With groups set, Odoo checks membership instead of write access on runs. -->
+        <field name="group_ids" eval="[Command.link(ref('account.group_account_readonly')), Command.link(ref('account.group_account_manager'))]"/>
+        <field name="code">action = model.action_open_latest_report()</field>
     </record>
 </odoo>

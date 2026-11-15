@@ -64,13 +64,16 @@ a consolidation group under Invoicing → Configuration → Consolidation.
 
 ### Tests
 
-`make test` installs the module on a fresh database and runs 40 tests; it exits
+`make test` installs the module on a fresh database and runs 54 tests; it exits
 non-zero when any test fails. The tests compare balances and elimination amounts
 with figures computed by hand in [`docs/expected_numbers.md`](docs/expected_numbers.md),
 not screens. They cover the cut-off (31 March vs 2 April), the payment in
 transit (31 March vs 1 April), the partial credit note, the USD loan to a UAH
 company, the translation reserve, and the run's refusals (locked period, months
 out of order, missing rate, unmapped account, a document changed in a closed month).
+They also cover a fourth company (EUR) joining after two months are closed, an
+intercompany invoice in a third currency, a payment moved out of a closed month,
+and the rates of a closed month being locked.
 
 ## Standard Odoo mechanisms used, and what was added
 
@@ -95,7 +98,7 @@ out of order, missing rate, unmapped account, a document changed in a closed mon
 | Consolidation group | Member companies, the consolidation company, its journal, clearing and cash in transit accounts, the first month, and average and closing rates per month |
 | Report lines | The mapping from accounts to report lines, as data: account code prefixes and a partner scope (external, group companies, any). A controller can add or change a line without code |
 | Consolidation run | One month of one group: reads each company's books, translates them (P&L at the average rate, balance sheet at closing, USD items at their USD amount, translation reserve as the balancing figure), posts the eliminations per pair of companies and stores the results |
-| Controls | Clearing balance (must be zero) and, per pair, the timing difference and cash in transit that explain why the two sides did not match |
+| Controls | Clearing balance (must be zero) and, per pair, the timing difference and cash in transit that explain why the two sides did not match. A month does not run if the books of the latest closed month changed after it closed, and the rates of a closed month are locked until it is reset |
 | Link from entry to run | Each elimination entry shows the run and whether it is a P&L or balance sheet elimination |
 
 How, when and where eliminations are created, and the options rejected, are in
@@ -125,8 +128,10 @@ Consolidation. The figures below are for the demo data, March 2026, in USD.
    2 April); Delta US and Delta Poland by 40,000.00 cash in transit (paid on
    31 March, received on 1 April).
 
-4. **Read the group results.** Press **Report** on the run. Rows are grouped
-   into Profit and loss, Assets, and Liabilities and equity, each with its
+4. **Read the group results.** Press **Report** on the run; Invoicing →
+   Reporting → Consolidation → Consolidated report opens the same report for the
+   latest closed month. Rows are grouped into Profit and loss, Assets, and
+   Liabilities and equity, each with its
    subtotal; each column is a company in USD, the Delta Group Consolidation
    column shows the eliminations, and the last column (**Total**) is the group.
    Read the section subtotals, not the top Total row, which adds the sections

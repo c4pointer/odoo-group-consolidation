@@ -534,3 +534,24 @@ class TestConsolidation(DeltaCase):
         ):
             with self.subTest(menu=xmlid):
                 self.assertIn(self.env.ref(xmlid).id, visible)
+
+    def test_report_menu_opens_the_latest_closed_month(self):
+        """The menu shows one month split by section, never months or sections added up."""
+        menu = self.env.ref("account_group_consolidation.menu_consolidation_result")
+        action = menu.action.run()
+        self.assertEqual(action["res_model"], "account.consolidation.result")
+        self.assertEqual(action["domain"], [("run_id", "=", self.runs[3].id)])
+        self.assertFalse(action["context"], "a search grouping would replace the section rows")
+
+    def test_report_menu_opens_for_a_read_only_accountant(self):
+        user = new_test_user(
+            self.env,
+            "accounting_reader",
+            groups="base.group_user,account.group_account_readonly",
+            company_id=self.companies["us"].id,
+            company_ids=[Command.set((self.members | self.elim_company).ids)],
+        )
+        menu = self.env.ref("account_group_consolidation.menu_consolidation_result")
+        allowed = (self.members | self.elim_company).ids
+        action = menu.action.with_user(user).with_context(allowed_company_ids=allowed).run()
+        self.assertEqual(action["domain"], [("run_id", "=", self.runs[3].id)])

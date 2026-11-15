@@ -120,9 +120,28 @@ class AccountConsolidationRun(models.Model):
         action = self.env["ir.actions.act_window"]._for_xml_id(
             "account_group_consolidation.action_consolidation_result"
         )
+        action["name"] = self.env._("Consolidated report: %(run)s", run=self.name)
         action["domain"] = [("run_id", "=", self.id)]
         # No search grouping: the pivot's own rows (section, then line) give a subtotal per
         # section, so profit, assets and liabilities are never added together.
+        action["context"] = {}
+        return action
+
+    @api.model
+    def action_open_latest_report(self):
+        """The menu entry: the report of the latest closed month, as its Report button opens it.
+
+        A pivot over every run would add balance sheets of different months together.
+        """
+        # Server actions run as superuser: search as the user, in the companies they selected.
+        run = self.sudo(False).search(
+            [("state", "=", "done"), ("company_id", "in", self.env.companies.ids)], limit=1
+        )  # ordered latest month first
+        if run:
+            return run.action_view_results()
+        action = self.env["ir.actions.act_window"]._for_xml_id(
+            "account_group_consolidation.action_consolidation_result"
+        )
         action["context"] = {}
         return action
 
