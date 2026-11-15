@@ -219,6 +219,17 @@ class TestConsolidation(DeltaCase):
                     self.assertTrue(move.ref)
                     self.assertTrue(all(move.line_ids.mapped("name")))
 
+    def test_eliminations_open_as_journal_entries(self):
+        """The Eliminations button lists entries with the journal entry views, not invoices."""
+        action = self.runs[3].action_view_moves()
+        self.assertEqual(
+            action["views"],
+            [
+                (self.env.ref("account.view_move_tree").id, "list"),
+                (self.env.ref("account.view_move_form").id, "form"),
+            ],
+        )
+
     # ---------------------------------------------------------- run behaviour
 
     def test_rerun_replaces_entries(self):
@@ -542,6 +553,7 @@ class TestConsolidation(DeltaCase):
         self.assertEqual(action["res_model"], "account.consolidation.result")
         self.assertEqual(action["domain"], [("run_id", "=", self.runs[3].id)])
         self.assertFalse(action["context"], "a search grouping would replace the section rows")
+        self.assertIn("March 2026", action["display_name"], "the title names the month shown")
 
     def test_report_menu_opens_for_a_read_only_accountant(self):
         user = new_test_user(

@@ -60,11 +60,14 @@ The port can be changed: `ODOO_PORT=9000 make demo`.
 
 Without the demo, create a company for the eliminations (in the group currency,
 with a general journal, a clearing account and a cash in transit account), then
-a consolidation group under Invoicing → Configuration → Consolidation.
+a consolidation group under Invoicing → Configuration → Consolidation. The
+controller needs **Show Full Accounting Features** (Settings → Users → the user →
+Accounting) to see journal items; in Odoo 20 the accounting Administrator role
+does not include it. The demo gives it to `admin`.
 
 ### Tests
 
-`make test` installs the module on a fresh database and runs 54 tests; it exits
+`make test` installs the module on a fresh database and runs 56 tests; it exits
 non-zero when any test fails. The tests compare balances and elimination amounts
 with figures computed by hand in [`docs/expected_numbers.md`](docs/expected_numbers.md),
 not screens. They cover the cut-off (31 March vs 2 April), the payment in

@@ -120,7 +120,10 @@ class AccountConsolidationRun(models.Model):
         action = self.env["ir.actions.act_window"]._for_xml_id(
             "account_group_consolidation.action_consolidation_result"
         )
-        action["name"] = self.env._("Consolidated report: %(run)s", run=self.name)
+        # The web client shows display_name, so the title says which month is on screen.
+        action["name"] = action["display_name"] = self.env._(
+            "Consolidated report: %(run)s", run=self.name
+        )
         action["domain"] = [("run_id", "=", self.id)]
         # No search grouping: the pivot's own rows (section, then line) give a subtotal per
         # section, so profit, assets and liabilities are never added together.
@@ -162,6 +165,11 @@ class AccountConsolidationRun(models.Model):
             "name": self.env._("Elimination entries"),
             "res_model": "account.move",
             "view_mode": "list,form",
+            # Journal entry views, not the invoice ones Odoo picks by default for account.move.
+            "views": [
+                (self.env.ref("account.view_move_tree").id, "list"),
+                (self.env.ref("account.view_move_form").id, "form"),
+            ],
             "domain": [("consolidation_run_id", "=", self.id)],
             "context": {"create": False},
         }

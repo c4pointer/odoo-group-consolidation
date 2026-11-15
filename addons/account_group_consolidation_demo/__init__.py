@@ -11,6 +11,9 @@ def post_init_hook(env):
     admin = env.ref("base.user_admin")
     admin.company_ids = [Command.link(company.id) for company in scenario.companies.values()]
     admin.company_id = scenario.companies["us"]
+    # The auditor's step needs journal items: the accounting administrator group does not
+    # include "Show Full Accounting Features" in Odoo 20.
+    admin.group_ids = [Command.link(env.ref("account.group_account_user").id)]
     # January and February are closed already; March is left for the controller to run.
     for month in (1, 2):
         run = env["account.consolidation.run"].create(
