@@ -146,7 +146,28 @@ class AccountConsolidationRate(models.Model):
 
     def write(self, vals):
         self._normalise_date(vals)
-        return super().write(vals)
+        self._check_month_open()
+        result = super().write(vals)
+        self._check_month_open()
+        return result
+
+    def unlink(self):
+        self._check_month_open()
+        return super().unlink()
+
+    def _check_month_open(self):
+        """A consolidated month keeps the rates it was run with until its run is reset."""
+        for rate in self:
+            month = rate.date.replace(day=1)
+            closed = rate.group_id.run_ids.filtered(lambda r: r.state == "done").mapped("date_from")
+            if month in closed:
+                raise UserError(
+                    self.env._(
+                        "%(month)s is consolidated with these rates. Reset its run before "
+                        "changing them.",
+                        month=f"{month:%B %Y}",
+                    )
+                )
 
     @api.model
     def _normalise_date(self, vals):
