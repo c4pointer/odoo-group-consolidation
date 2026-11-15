@@ -14,6 +14,7 @@ One run per group and month. Running it:
 Running a month again replaces its entries and results.
 """
 
+import hashlib
 from collections import defaultdict
 from datetime import timedelta
 from itertools import combinations
@@ -54,6 +55,12 @@ class AccountConsolidationRun(models.Model):
         readonly=True,
         help="Balance of the intercompany clearing account at month end. Must be zero; "
         "anything else is an unexplained intercompany difference.",
+    )
+    books_fingerprint = fields.Char(
+        readonly=True,
+        copy=False,
+        help="Digest of the member books this run read. A later month runs only while the "
+        "books of the latest closed month still give the same digest.",
     )
 
     _unique_month = models.Constraint(
@@ -185,6 +192,30 @@ class AccountConsolidationRun(models.Model):
                     companies=", ".join((companies - self.env.user.company_ids).mapped("name")),
                 )
             )
+        self._check_closed_books_unchanged()
+
+    def _check_closed_books_unchanged(self):
+        """The months already closed must still read the books they were closed on.
+
+        Books are cumulative, so the latest closed month covers every change dated in it
+        or before; earlier months are read only to name the first one that changed.
+        """
+        closed = self.group_id.run_ids.filtered(
+            lambda r: r.state == "done" and r.date_from < self.date_from and r.books_fingerprint
+        ).sorted("date_from", reverse=True)
+        changed = self.browse()
+        for run in closed:
+            if run._read_fingerprint() == run.books_fingerprint:
+                break
+            changed = run
+        if changed:
+            raise UserError(
+                self.env._(
+                    "The books of %(month)s changed after it was consolidated. Reset the runs "
+                    "from %(month)s onwards and run them again.",
+                    month=f"{changed.date_from:%B %Y}",
+                )
+            )
 
     def _check_not_locked(self):
         company = self.group_id.company_id
@@ -218,7 +249,9 @@ class AccountConsolidationRun(models.Model):
         moves.unlink()
         self.result_ids.unlink()
         self.difference_ids.unlink()
-        self.write({"state": "draft", "clearing_balance": 0.0, "run_at": False})
+        self.write(
+            {"state": "draft", "clearing_balance": 0.0, "run_at": False, "books_fingerprint": False}
+        )
 
     # ------------------------------------------------------------------ reading books
 
@@ -282,6 +315,35 @@ class AccountConsolidationRun(models.Model):
             )
         return book
 
+    def _read_fingerprint(self):
+        """Fingerprint of the member books as they read today for this run's month."""
+        classify = self.env["account.consolidation.line"].search([])._classifier()
+        member_by_partner = self.group_id._member_by_partner()
+        members = self.group_id.member_company_ids
+        return self._fingerprint(
+            {c: self._read_book(c, classify, member_by_partner) for c in members}
+        )
+
+    @staticmethod
+    def _fingerprint(books):
+        """Digest of local and translated amounts by company, account, counterpart and month.
+
+        Report lines are left out, so adding or moving a line does not reopen closed months.
+        """
+        rows = defaultdict(lambda: [0.0, 0.0])
+        for company, book in books.items():
+            for (_line, code, counterpart, month), (local, amount) in book.items():
+                row = rows[(company.id, code, counterpart.id or 0, month.isoformat())]
+                row[0] += local
+                row[1] += amount
+        # Adding 0.0 turns -0.0 into 0.0, so a sign of zero never changes the digest.
+        payload = sorted(
+            (key, round(local, 2) + 0.0, round(amount, 2) + 0.0)
+            for key, (local, amount) in rows.items()
+            if round(local, 2) or round(amount, 2)
+        )
+        return hashlib.sha256(repr(payload).encode()).hexdigest()
+
     def _translate(
         self,
         company,
@@ -330,6 +392,7 @@ class AccountConsolidationRun(models.Model):
         member_by_partner = group._member_by_partner()
         members = group.member_company_ids.sorted("id")
         books = {c: self._read_book(c, classify, member_by_partner) for c in members}
+        fingerprint = self._fingerprint(books)
 
         differences = []
         for first, second in combinations(members, 2):
@@ -344,6 +407,7 @@ class AccountConsolidationRun(models.Model):
                 "state": "done",
                 "run_at": fields.Datetime.now(),
                 "clearing_balance": self._clearing_balance(),
+                "books_fingerprint": fingerprint,
             }
         )
 
