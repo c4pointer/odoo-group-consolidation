@@ -131,7 +131,8 @@ class AccountConsolidationRun(models.Model):
     def action_open_latest_report(self):
         """The menu entry: the report of the latest closed month, as its Report button opens it.
 
-        A pivot over every run would add balance sheets of different months together.
+        A pivot over every run would add balance sheets of different months together, so
+        when no run is visible the menu says what to do instead of showing one.
         """
         # Server actions run as superuser: search as the user, in the companies they selected.
         run = self.sudo(False).search(
@@ -139,11 +140,20 @@ class AccountConsolidationRun(models.Model):
         )  # ordered latest month first
         if run:
             return run.action_view_results()
-        action = self.env["ir.actions.act_window"]._for_xml_id(
-            "account_group_consolidation.action_consolidation_result"
+        hidden = self.sudo().search(
+            [("state", "=", "done"), ("company_id", "in", self.env.user.company_ids.ids)],
+            limit=1,
         )
-        action["context"] = {}
-        return action
+        if hidden:
+            raise UserError(
+                self.env._(
+                    "Select %(company)s in the company switcher to see the consolidated report.",
+                    company=hidden.company_id.name,
+                )
+            )
+        raise UserError(
+            self.env._("No month is consolidated yet. Run one under Consolidation runs first.")
+        )
 
     def action_view_moves(self):
         self.ensure_one()

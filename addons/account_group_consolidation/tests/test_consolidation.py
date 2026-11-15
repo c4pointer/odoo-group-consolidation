@@ -555,3 +555,10 @@ class TestConsolidation(DeltaCase):
         allowed = (self.members | self.elim_company).ids
         action = menu.action.with_user(user).with_context(allowed_company_ids=allowed).run()
         self.assertEqual(action["domain"], [("run_id", "=", self.runs[3].id)])
+
+    def test_report_menu_names_the_company_to_select(self):
+        """Without the consolidation company selected, the menu says so instead of a total."""
+        menu = self.env.ref("account_group_consolidation.menu_consolidation_result")
+        only_us = menu.action.with_context(allowed_company_ids=self.companies["us"].ids)
+        with self.assertRaisesRegex(UserError, "Delta Group Consolidation"):
+            only_us.run()
