@@ -29,6 +29,20 @@ services:
       - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
       - odoo-data:/var/lib/odoo
 
+  # The empty database of `make bare`, on its own port so each URL opens one database.
+  odoo-clean:
+    image: odoo:20.0
+    command: ["odoo", "--db-filter=^delta_clean$$"]
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${ODOO_CLEAN_PORT:-8021}:8069"
+    volumes:
+      - ./addons:/mnt/extra-addons:ro
+      - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
+      - odoo-data:/var/lib/odoo
+
 volumes:
   pgdata:
   odoo-data:
