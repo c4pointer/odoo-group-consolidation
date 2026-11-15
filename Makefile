@@ -10,7 +10,7 @@ ODOO     := $(COMPOSE) run --rm -T odoo odoo
 DROPDB   := $(COMPOSE) exec -T db dropdb -U odoo --if-exists --force
 
 .DEFAULT_GOAL := help
-.PHONY: help up down logs demo bare demo-data tunnel test harness lint fmt shell
+.PHONY: help up down logs demo bare demo-data tunnel tunnel-cf test harness lint fmt shell
 
 help: ## List available targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
@@ -49,6 +49,9 @@ demo-data: ## Load the demo data into an existing database: make demo-data DB=de
 
 tunnel: ## Share Odoo publicly over SSH, no install (localhost.run): make tunnel [TUNNEL_PORT=8021]
 	ssh -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -R 80:localhost:$(TUNNEL_PORT) nokey@localhost.run
+
+tunnel-cf: ## Share Odoo publicly with a Cloudflare quick tunnel; the address holds while it runs
+	cloudflared tunnel --no-autoupdate --url http://localhost:$(TUNNEL_PORT)
 
 test: ## Run the module's tests on a throw-away database
 	$(COMPOSE) up -d --wait db

@@ -42,7 +42,7 @@ start over from a clean database.
 | `make demo` | Recreate the demo database from scratch (one command) |
 | `make bare` | Recreate an empty database, `delta_clean`, on port 8021 to install the module from Apps |
 | `make demo-data DB=delta_clean` | Load the demo data into an existing database (one command) |
-| `make tunnel` | Share the demo publicly over SSH, nothing to install (see below) |
+| `make tunnel` / `make tunnel-cf` | Share the demo publicly over SSH or a Cloudflare quick tunnel (see below) |
 | `make test` | Install the module on a throw-away database and run its tests |
 | `make up` / `make down` | Start / stop the containers (data is kept) |
 | `make shell` | Odoo shell on the demo database |
@@ -70,6 +70,12 @@ free address changes from time to time, so send the current one. Both Odoo
 servers run with the database manager and database list turned off, so the
 link exposes the application only; anyone with it can log in with the demo
 login, so close the tunnel (Ctrl+C) when done.
+
+`make tunnel-cf` does the same with a Cloudflare quick tunnel: its
+`https://….trycloudflare.com` address does not change while the command runs.
+It needs the `cloudflared` binary on the PATH (one file from
+[github.com/cloudflare/cloudflared](https://github.com/cloudflare/cloudflared/releases),
+no account).
 
 ### Into an existing Odoo 20
 
