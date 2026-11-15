@@ -48,7 +48,9 @@ start over from a clean database.
 | `make shell` | Odoo shell on the demo database |
 | `make help` | List every target |
 
-The ports can be changed: `ODOO_PORT=9000 ODOO_CLEAN_PORT=9001 make up`.
+The ports can be changed: `ODOO_PORT=9000 ODOO_CLEAN_PORT=9001 make up`. The
+tunnel proxy's ports come from `SHARE_PORT` and `SHARE_CLEAN_PORT`; pass the same
+value as `TUNNEL_PORT`.
 
 To install the module by hand and load the demo data separately:
 
@@ -64,8 +66,13 @@ To install the module by hand and load the demo data separately:
 ### Sharing it with a public link
 
 `make tunnel` opens an SSH tunnel to [serveo.net](https://serveo.net) and prints
-a public https address for the demo (`make tunnel TUNNEL_PORT=8021` for the
-empty database). It needs only `ssh` and lives while the command runs. The free
+a public https address for the demo (`make tunnel TUNNEL_PORT=8031` for the
+empty database). It needs only `ssh` and lives while the command runs. The
+tunnel goes through a small nginx proxy (the `share` service, ports 8030 and
+8031) that compresses Odoo's responses: its 7 MB script bundle shrinks to
+1.5 MB. Free tunnels deliver that in seconds, while the full 7 MB is often cut
+off midway, which leaves a blank page. Serveo shows its own warning page to each new visitor
+once; press **Continue to Site**. The free
 address contains the public IP address of the machine running it; a named
 subdomain needs the SSH key registered at serveo.net. Both Odoo servers run with
 the database manager and database list turned off, so the link exposes the

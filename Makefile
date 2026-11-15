@@ -2,7 +2,7 @@
 DB       ?= delta
 TEST_DB  ?= delta_test
 BARE_DB  ?= delta_clean
-TUNNEL_PORT ?= 8020
+TUNNEL_PORT ?= 8030
 MODULE   := account_group_consolidation
 DEMO     := account_group_consolidation_demo
 COMPOSE  := docker compose
@@ -19,7 +19,7 @@ up: ## Start PostgreSQL and Odoo (demo: http://localhost:8020, empty: http://127
 	$(COMPOSE) up -d
 
 down: ## Stop all containers (data volumes are kept)
-	$(COMPOSE) down
+	$(COMPOSE) --profile share down
 
 logs: ## Follow the Odoo log
 	$(COMPOSE) logs -f odoo
@@ -47,13 +47,16 @@ demo-data: ## Load the demo data into an existing database: make demo-data DB=de
 	$(COMPOSE) up -d odoo odoo-clean
 	@echo "Demo data loaded into $(DB); reload the page (login: admin / admin)"
 
-tunnel: ## Share Odoo publicly over SSH, no install (serveo.net): make tunnel [TUNNEL_PORT=8021]
+tunnel: ## Share Odoo publicly over SSH, no install (serveo.net): make tunnel [TUNNEL_PORT=8031]
+	$(COMPOSE) --profile share up -d share
 	ssh -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=accept-new -R 80:localhost:$(TUNNEL_PORT) serveo.net
 
 tunnel-lr: ## Fallback SSH tunnel (localhost.run); its free tier is slow for Odoo's assets
+	$(COMPOSE) --profile share up -d share
 	ssh -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -R 80:localhost:$(TUNNEL_PORT) nokey@localhost.run
 
 tunnel-cf: ## Share Odoo publicly with a Cloudflare quick tunnel; the address holds while it runs
+	$(COMPOSE) --profile share up -d share
 	cloudflared tunnel --no-autoupdate --url http://localhost:$(TUNNEL_PORT)
 
 test: ## Run the module's tests on a throw-away database

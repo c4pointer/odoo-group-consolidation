@@ -43,6 +43,16 @@ services:
       - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
       - odoo-data:/var/lib/odoo
 
+  # Compressing proxy for public tunnels only (`make tunnel`); not started by `make up`.
+  share:
+    image: nginx:1.27-alpine
+    profiles: ["share"]
+    ports:
+      - "127.0.0.1:${SHARE_PORT:-8030}:8030"
+      - "127.0.0.1:${SHARE_CLEAN_PORT:-8031}:8031"
+    volumes:
+      - ./config/nginx-share.conf:/etc/nginx/nginx.conf:ro
+
 volumes:
   pgdata:
   odoo-data:
