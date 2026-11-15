@@ -1,6 +1,7 @@
 # Developer entry points. Every target runs inside Docker; only `make lint` needs ruff locally.
 DB       ?= delta
 TEST_DB  ?= delta_test
+BARE_DB  ?= delta_clean
 MODULE   := account_group_consolidation
 DEMO     := account_group_consolidation_demo
 COMPOSE  := docker compose
@@ -8,10 +9,10 @@ ODOO     := $(COMPOSE) run --rm -T odoo odoo
 DROPDB   := $(COMPOSE) exec -T db dropdb -U odoo --if-exists --force
 
 .DEFAULT_GOAL := help
-.PHONY: help up down logs demo test harness lint fmt shell
+.PHONY: help up down logs demo bare demo-data test harness lint fmt shell
 
 help: ## List available targets
-	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-8s %s\n", $$1, $$2}'
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
 
 up: ## Start PostgreSQL and Odoo (http://localhost:8020)
 	$(COMPOSE) up -d
@@ -29,6 +30,21 @@ demo: ## Recreate the demo database with the module and Delta Group demo data, t
 	$(ODOO) -d $(DB) -i $(DEMO) --stop-after-init
 	$(COMPOSE) up -d odoo
 	@echo "Ready: http://localhost:$${ODOO_PORT:-8020}  (db: $(DB), login: admin / admin)"
+
+bare: ## Recreate an empty database (delta_clean, base only) to install the module from Apps
+	$(COMPOSE) up -d --wait db
+	$(COMPOSE) stop odoo
+	$(DROPDB) $(BARE_DB)
+	$(ODOO) -d $(BARE_DB) -i base --stop-after-init
+	$(COMPOSE) up -d odoo
+	@echo "Ready: http://localhost:$${ODOO_PORT:-8020}/web?db=$(BARE_DB)  (login: admin / admin)"
+
+demo-data: ## Load the demo data into an existing database: make demo-data DB=delta_clean
+	$(COMPOSE) up -d --wait db
+	$(COMPOSE) stop odoo
+	$(ODOO) -d $(DB) -i $(DEMO) --stop-after-init
+	$(COMPOSE) up -d odoo
+	@echo "Demo data loaded: http://localhost:$${ODOO_PORT:-8020}/web?db=$(DB)  (login: admin / admin)"
 
 test: ## Run the module's tests on a throw-away database
 	$(COMPOSE) up -d --wait db

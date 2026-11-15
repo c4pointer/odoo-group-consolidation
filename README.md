@@ -40,12 +40,25 @@ start over from a clean database.
 | Command | What it does |
 |---|---|
 | `make demo` | Recreate the demo database from scratch (one command) |
+| `make bare` | Recreate an empty database, `delta_clean`, to install the module from Apps |
+| `make demo-data DB=delta_clean` | Load the demo data into an existing database (one command) |
 | `make test` | Install the module on a throw-away database and run its tests |
 | `make up` / `make down` | Start / stop the containers (data is kept) |
 | `make shell` | Odoo shell on the demo database |
 | `make help` | List every target |
 
 The port can be changed: `ODOO_PORT=9000 make demo`.
+
+To install the module by hand and load the demo data separately:
+
+1. `make bare` creates the empty database `delta_clean` (only `base`) and starts
+   Odoo. Open http://localhost:8020/web?db=delta_clean and log in as `admin` /
+   `admin`.
+2. Apps → remove the **Apps** filter → search "Consolidation" → install **Group
+   Consolidation and Intercompany Eliminations**. No demo data is loaded.
+3. `make demo-data DB=delta_clean` loads the Delta Group demo data with one
+   command and restarts Odoo; reload the page. Installing **Group Consolidation:
+   Delta Group demo data** from Apps does the same.
 
 ### Into an existing Odoo 20
 
