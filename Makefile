@@ -10,7 +10,7 @@ ODOO     := $(COMPOSE) run --rm -T odoo odoo
 DROPDB   := $(COMPOSE) exec -T db dropdb -U odoo --if-exists --force
 
 .DEFAULT_GOAL := help
-.PHONY: help up down logs demo bare demo-data tunnel tunnel-cf test harness lint fmt shell
+.PHONY: help up down logs demo bare demo-data tunnel tunnel-lr tunnel-cf test harness lint fmt shell
 
 help: ## List available targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
@@ -47,7 +47,10 @@ demo-data: ## Load the demo data into an existing database: make demo-data DB=de
 	$(COMPOSE) up -d odoo odoo-clean
 	@echo "Demo data loaded into $(DB); reload the page (login: admin / admin)"
 
-tunnel: ## Share Odoo publicly over SSH, no install (localhost.run): make tunnel [TUNNEL_PORT=8021]
+tunnel: ## Share Odoo publicly over SSH, no install (serveo.net): make tunnel [TUNNEL_PORT=8021]
+	ssh -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=accept-new -R 80:localhost:$(TUNNEL_PORT) serveo.net
+
+tunnel-lr: ## Fallback SSH tunnel (localhost.run); its free tier is slow for Odoo's assets
 	ssh -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new -R 80:localhost:$(TUNNEL_PORT) nokey@localhost.run
 
 tunnel-cf: ## Share Odoo publicly with a Cloudflare quick tunnel; the address holds while it runs

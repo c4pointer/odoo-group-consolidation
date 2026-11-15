@@ -42,7 +42,7 @@ start over from a clean database.
 | `make demo` | Recreate the demo database from scratch (one command) |
 | `make bare` | Recreate an empty database, `delta_clean`, on port 8021 to install the module from Apps |
 | `make demo-data DB=delta_clean` | Load the demo data into an existing database (one command) |
-| `make tunnel` / `make tunnel-cf` | Share the demo publicly over SSH or a Cloudflare quick tunnel (see below) |
+| `make tunnel` | Share the demo with a public link over SSH (see below) |
 | `make test` | Install the module on a throw-away database and run its tests |
 | `make up` / `make down` | Start / stop the containers (data is kept) |
 | `make shell` | Odoo shell on the demo database |
@@ -63,19 +63,26 @@ To install the module by hand and load the demo data separately:
 
 ### Sharing it with a public link
 
-`make tunnel` opens an SSH tunnel to [localhost.run](https://localhost.run) and
-prints a public https address for the demo (`make tunnel TUNNEL_PORT=8021` for
-the empty database). It needs only `ssh` and lives while the command runs; the
-free address changes from time to time, so send the current one. Both Odoo
-servers run with the database manager and database list turned off, so the
-link exposes the application only; anyone with it can log in with the demo
-login, so close the tunnel (Ctrl+C) when done.
+`make tunnel` opens an SSH tunnel to [serveo.net](https://serveo.net) and prints
+a public https address for the demo (`make tunnel TUNNEL_PORT=8021` for the
+empty database). It needs only `ssh` and lives while the command runs. The free
+address contains the public IP address of the machine running it; a named
+subdomain needs the SSH key registered at serveo.net. Both Odoo servers run with
+the database manager and database list turned off, so the link exposes the
+application only; anyone with it can log in with the demo login, so close the
+tunnel (Ctrl+C) when done.
 
-`make tunnel-cf` does the same with a Cloudflare quick tunnel: its
-`https://….trycloudflare.com` address does not change while the command runs.
-It needs the `cloudflared` binary on the PATH (one file from
-[github.com/cloudflare/cloudflared](https://github.com/cloudflare/cloudflared/releases),
-no account).
+Two alternatives, for networks where serveo.net is unreachable:
+
+- `make tunnel-lr` uses [localhost.run](https://localhost.run). It needs only
+  `ssh`, but its free tier is slow (a few KB/s), so the first page can take
+  many minutes to load Odoo's 7 MB of scripts, and its address changes from
+  time to time.
+- `make tunnel-cf` uses a Cloudflare quick tunnel, whose
+  `https://….trycloudflare.com` address does not change while the command runs.
+  It needs the `cloudflared` binary on the PATH (one file from
+  [github.com/cloudflare/cloudflared](https://github.com/cloudflare/cloudflared/releases),
+  no account) and access to api.trycloudflare.com, which some networks block.
 
 ### Into an existing Odoo 20
 
