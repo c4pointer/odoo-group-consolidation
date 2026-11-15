@@ -265,7 +265,8 @@ class AccountConsolidationRun(models.Model):
                     month,
                     balance,
                     amount_currency,
-                    has_group_amount=operator == "!=",
+                    has_document_amount=operator == "!=",
+                    intercompany=bool(counterpart),
                 )
                 key = (line, code, counterpart, month)
                 book[key][0] += balance
@@ -282,18 +283,36 @@ class AccountConsolidationRun(models.Model):
         return book
 
     def _translate(
-        self, company, section, currency, month, balance, amount_currency, has_group_amount
+        self,
+        company,
+        section,
+        currency,
+        month,
+        balance,
+        amount_currency,
+        has_document_amount,
+        intercompany=False,
     ):
         """Translate a group of items to the group currency.
 
-        `has_group_amount` tells whether every item of the group carries a non-zero
-        group-currency amount: it is decided per item when reading, because an invoice and
-        its full credit note sum to zero in USD and must still be taken at their USD amount.
+        `has_document_amount` tells whether every item of the group carries a non-zero
+        document-currency amount: it is decided per item when reading, because an invoice
+        and its full credit note sum to zero in USD and must still be taken at their USD
+        amount.
         """
         group_currency = self.currency_id
+        use_document = section != "pl" or has_document_amount
+        if intercompany and use_document and currency not in (company.currency_id, group_currency):
+            # An intercompany document in a third currency: both sides translate its document
+            # amount at the group's rate for that currency, so they eliminate exactly.
+            if section == "pl":
+                average, _closing = self.group_id._rate(currency, month)
+                return amount_currency / average
+            _average, closing = self.group_id._rate(currency, self.date_to)
+            return amount_currency / closing
         if company.currency_id == group_currency:
             return balance
-        if currency == group_currency and (section != "pl" or has_group_amount):
+        if currency == group_currency and use_document:
             # Denominated in group currency: the document amount is exact.
             return amount_currency
         if section == "pl":
