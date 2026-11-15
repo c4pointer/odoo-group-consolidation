@@ -42,7 +42,7 @@ start over from a clean database.
 | `make demo` | Recreate the demo database from scratch (one command) |
 | `make bare` | Recreate an empty database, `delta_clean`, on port 8021 to install the module from Apps |
 | `make demo-data DB=delta_clean` | Load the demo data into an existing database (one command) |
-| `make tunnel` | Share the demo with a public link over SSH (see below) |
+| `make tunnel` / `make tunnel-ts` | Share the demo with a public link over SSH or Tailscale Funnel (see below) |
 | `make test` | Install the module on a throw-away database and run its tests |
 | `make up` / `make down` | Start / stop the containers (data is kept) |
 | `make shell` | Odoo shell on the demo database |
@@ -65,31 +65,24 @@ To install the module by hand and load the demo data separately:
 
 ### Sharing it with a public link
 
-`make tunnel` opens an SSH tunnel to [serveo.net](https://serveo.net) and prints
-a public https address for the demo (`make tunnel TUNNEL_PORT=8031` for the
-empty database). It needs only `ssh` and lives while the command runs. The
-tunnel goes through a small nginx proxy (the `share` service, ports 8030 and
-8031) that compresses Odoo's responses: its 7 MB script bundle shrinks to
-1.5 MB. Free tunnels deliver that in seconds, while the full 7 MB is often cut
-off midway, which leaves a blank page. Serveo shows its own warning page to each new visitor
-once; press **Continue to Site**. The free
-address contains the public IP address of the machine running it; a named
-subdomain needs the SSH key registered at serveo.net. Both Odoo servers run with
-the database manager and database list turned off, so the link exposes the
+Every tunnel target goes through a small nginx proxy (the `share` service, port
+8030 for the demo and 8031 for the empty database) that compresses Odoo's
+responses: the 7 MB script bundle shrinks to 1.5 MB. Free tunnels deliver that
+in seconds, while the full 7 MB is often cut off midway, which leaves a blank
+page. The proxy also passes on each visitor's address, so Odoo's login cooldown
+after failed attempts applies per visitor. Both Odoo servers run with the
+database manager and database list turned off, so a link exposes the
 application only; anyone with it can log in with the demo login, so close the
-tunnel (Ctrl+C) when done.
+tunnel (Ctrl+C) when done. Add `TUNNEL_PORT=8031` to share the empty database.
 
-Two alternatives, for networks where serveo.net is unreachable:
+| Command | Needs | Address |
+|---|---|---|
+| `make tunnel` | `ssh` only ([pinggy.io](https://pinggy.io)) | New on each run, contains the machine's public IP; the free tunnel closes after 60 minutes; visitors pass a warning page once |
+| `make tunnel-ts` | [Tailscale](https://tailscale.com) with HTTPS and Funnel enabled for the tailnet | Permanent `https://<machine>.<tailnet>.ts.net`, no warning page, no time limit |
+| `make tunnel-lr` | `ssh` only ([localhost.run](https://localhost.run)) | Changes from time to time; the free tier is slow (a few KB/s), so the first page takes minutes |
+| `make tunnel-cf` | the `cloudflared` binary ([releases](https://github.com/cloudflare/cloudflared/releases), no account) | `https://….trycloudflare.com`, holds while it runs; needs api.trycloudflare.com, which some networks block |
 
-- `make tunnel-lr` uses [localhost.run](https://localhost.run). It needs only
-  `ssh`, but its free tier is slow (a few KB/s), so the first page can take
-  many minutes to load Odoo's 7 MB of scripts, and its address changes from
-  time to time.
-- `make tunnel-cf` uses a Cloudflare quick tunnel, whose
-  `https://….trycloudflare.com` address does not change while the command runs.
-  It needs the `cloudflared` binary on the PATH (one file from
-  [github.com/cloudflare/cloudflared](https://github.com/cloudflare/cloudflared/releases),
-  no account) and access to api.trycloudflare.com, which some networks block.
+serveo.net was tried and dropped: its free tunnels expire after 10 minutes.
 
 ### Into an existing Odoo 20
 

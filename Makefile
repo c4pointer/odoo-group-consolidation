@@ -10,7 +10,7 @@ ODOO     := $(COMPOSE) run --rm -T odoo odoo
 DROPDB   := $(COMPOSE) exec -T db dropdb -U odoo --if-exists --force
 
 .DEFAULT_GOAL := help
-.PHONY: help up down logs demo bare demo-data tunnel tunnel-lr tunnel-cf test harness lint fmt shell
+.PHONY: help up down logs demo bare demo-data tunnel tunnel-ts tunnel-lr tunnel-cf test harness lint fmt shell
 
 help: ## List available targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
@@ -47,9 +47,13 @@ demo-data: ## Load the demo data into an existing database: make demo-data DB=de
 	$(COMPOSE) up -d odoo odoo-clean
 	@echo "Demo data loaded into $(DB); reload the page (login: admin / admin)"
 
-tunnel: ## Share Odoo publicly over SSH, no install (serveo.net): make tunnel [TUNNEL_PORT=8031]
+tunnel: ## Share Odoo publicly over SSH for 60 minutes, no install (pinggy.io): make tunnel [TUNNEL_PORT=8031]
 	$(COMPOSE) --profile share up -d share
-	ssh -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=accept-new -R 80:localhost:$(TUNNEL_PORT) serveo.net
+	ssh -p 443 -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=accept-new -R0:localhost:$(TUNNEL_PORT) a.pinggy.io
+
+tunnel-ts: ## Share Odoo at this machine's permanent Tailscale Funnel address while it runs
+	$(COMPOSE) --profile share up -d share
+	tailscale funnel $(TUNNEL_PORT)
 
 tunnel-lr: ## Fallback SSH tunnel (localhost.run); its free tier is slow for Odoo's assets
 	$(COMPOSE) --profile share up -d share
