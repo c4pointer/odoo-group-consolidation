@@ -1,3 +1,9 @@
+"""Delta Group demo data, created in code on install (see README.rst).
+
+The scenario itself is shared with the tests and lives in
+account_group_consolidation/scenario/delta.py.
+"""
+
 from datetime import date
 
 from odoo import Command
