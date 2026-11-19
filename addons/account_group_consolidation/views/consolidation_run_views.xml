@@ -58,6 +58,9 @@
                             <field name="second_company_id"/>
                             <field name="timing_difference" sum="Total"/>
                             <field name="cash_in_transit" sum="Total"/>
+                            <field name="amount_difference" sum="Total"
+                                   decoration-danger="amount_difference != 0"/>
+                            <field name="disputed_documents" optional="show"/>
                             <field name="currency_id" column_invisible="True"/>
                         </list>
                     </field>

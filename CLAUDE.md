@@ -44,6 +44,7 @@ Non-negotiable business requirements:
 | `make up` / `make down` | Start / stop Odoo 20 + PostgreSQL 17 (http://localhost:8020) |
 | `make demo` | Recreate database `delta` with the module and demo data |
 | `make test` | Install the module on a fresh `delta_test` database and run its tests |
+| `make test-one T=Class[.test_name]` | Re-run selected tests on the existing `delta_test` (fast feedback; `make test` is still the gate) |
 | `make harness` | Test the Claude Code hooks |
 | `make lint` / `make fmt` | ruff check / auto-format |
 | `make shell` | Odoo shell on `delta` |

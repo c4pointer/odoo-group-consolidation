@@ -44,6 +44,7 @@ start over from a clean database.
 | `make demo-data DB=delta_clean` | Load the demo data into an existing database (one command) |
 | `make tunnel` / `make tunnel-ts` | Share the demo with a public link over SSH or Tailscale Funnel (see below) |
 | `make test` | Install the module on a throw-away database and run its tests |
+| `make test-one T=TestScenarioBooks` | Re-run one test class or method (`T=Class.test_name`) on the database `make test` left, in about 15 seconds |
 | `make up` / `make down` | Start / stop the containers (data is kept) |
 | `make shell` | Odoo shell on the demo database |
 | `make help` | List every target |
@@ -104,16 +105,18 @@ does not include it. The demo gives it to `admin`.
 
 ### Tests
 
-`make test` installs the module on a fresh database and runs 56 tests; it exits
-non-zero when any test fails. The tests compare balances and elimination amounts
+`make test` installs the module on a fresh database and runs its 57 tests; it exits
+non-zero when any test fails. (Odoo's summary line says 59: it adds its two web
+JavaScript suites, which have nothing to run for this module.) The tests compare balances and elimination amounts
 with figures computed by hand in [`docs/expected_numbers.md`](docs/expected_numbers.md),
 not screens. They cover the cut-off (31 March vs 2 April), the payment in
 transit (31 March vs 1 April), the partial credit note, the USD loan to a UAH
 company, the translation reserve, and the run's refusals (locked period, months
 out of order, missing rate, unmapped account, a document changed in a closed month).
 They also cover a fourth company (EUR) joining after two months are closed, an
-intercompany invoice in a third currency, a payment moved out of a closed month,
-and the rates of a closed month being locked.
+intercompany invoice in a third currency, a pair of subsidiaries trading without
+the parent, an amount both sides booked differently (reported apart from timing), a payment moved out of a closed month, and the rates of a closed
+month being locked.
 
 ## Standard Odoo mechanisms used, and what was added
 
@@ -138,7 +141,7 @@ and the rates of a closed month being locked.
 | Consolidation group | Member companies, the consolidation company, its journal, clearing and cash in transit accounts, the first month, and average and closing rates per month |
 | Report lines | The mapping from accounts to report lines, as data: account code prefixes and a partner scope (external, group companies, any). A controller can add or change a line without code |
 | Consolidation run | One month of one group: reads each company's books, translates them (P&L at the average rate, balance sheet at closing, USD items at their USD amount, translation reserve as the balancing figure), posts the eliminations per pair of companies and stores the results |
-| Controls | Clearing balance (must be zero) and, per pair, the timing difference and cash in transit that explain why the two sides did not match. A month does not run if the books of the latest closed month changed after it closed, and the rates of a closed month are locked until it is reset |
+| Controls | Clearing balance (must be zero) and, per pair, the timing difference, cash in transit and any amount the two sides booked differently on the same document, which explain why they did not match. A month does not run if the books of the latest closed month changed after it closed, and the rates of a closed month are locked until it is reset |
 | Link from entry to run | Each elimination entry shows the run and whether it is a P&L or balance sheet elimination |
 
 How, when and where eliminations are created, and the options rejected, are in

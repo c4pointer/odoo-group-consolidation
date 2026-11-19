@@ -53,7 +53,16 @@ class AccountConsolidationDifference(models.Model):
     first_company_id = fields.Many2one("res.company", required=True)
     second_company_id = fields.Many2one("res.company", required=True)
     timing_difference = fields.Monetary(
-        help="Documents booked by one side only (cut-off), taken to the clearing account.",
+        help="Documents booked by one side only (cut-off), taken to the clearing account. "
+        "Not an error: it reverses when the other side books the document.",
+    )
+    amount_difference = fields.Monetary(
+        help="Documents booked by both sides at different amounts, matched by the buyer's "
+        "reference being the seller's document number. Positive: the seller booked more. "
+        "An error in one company's books, to be corrected there; it does not reverse by itself.",
+    )
+    disputed_documents = fields.Text(
+        help="The matched documents whose amounts disagree, with each side's amount.",
     )
     cash_in_transit = fields.Monetary(
         help="Payments recorded by the payer and not yet by the payee.",

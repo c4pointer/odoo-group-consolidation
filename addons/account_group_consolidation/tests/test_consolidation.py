@@ -182,6 +182,11 @@ class TestConsolidation(DeltaCase):
         self.assertAlmostEqual(ua_us.cash_in_transit, 0.0, delta=0.01)
         self.assertAlmostEqual(pl_us.timing_difference, 0.0, delta=0.01)
         self.assertAlmostEqual(pl_us.cash_in_transit, 40_000.0, delta=0.01)
+        # A cut-off and a payment in transit are not disputes: no pair disagrees on an amount.
+        for difference in differences.values():
+            with self.subTest(pair=difference.display_name):
+                self.assertAlmostEqual(difference.amount_difference, 0.0, delta=0.01)
+                self.assertFalse(difference.disputed_documents)
 
     # ---------------------------------------------------------- group results
 
@@ -351,6 +356,180 @@ class TestConsolidation(DeltaCase):
         self.assertAlmostEqual(revenue, expected["ua_us_ytd_revenue_and_cost"], delta=0.01)
         self.assertAlmostEqual(cost, expected["ua_us_ytd_revenue_and_cost"], delta=0.01)
 
+    def test_pair_without_delta_us_is_eliminated(self):
+        """Poland invoices Ukraine directly: a pair that does not involve the parent.
+
+        April, USD 10,000, booked by both sides on 10 April. By hand, in USD: Poland's
+        revenue and Ukraine's cost leave the group in full, so do Poland's receivable and
+        Ukraine's payable at 30 April; the pair needs no clearing and no cash in transit,
+        and the group's April result stays the oracle's.
+        """
+        usd = self.env.ref("base.USD")
+        poland, ukraine = self.companies["pl"], self.companies["ua"]
+        invoice = self.scenario._invoice(
+            poland,
+            "out_invoice",
+            "ua",
+            date(2026, 4, 10),
+            10_000.0,
+            usd,
+            delta.ACC_REVENUE,
+            "Design services for Delta Ukraine",
+        )
+        self.scenario._invoice(
+            ukraine,
+            "in_invoice",
+            "pl",
+            date(2026, 4, 10),
+            10_000.0,
+            usd,
+            delta.ACC_EXPENSE,
+            "Design services from Delta Poland",
+            ref=invoice.name,
+        )
+        april = self._run(4)
+
+        profit_and_loss = self._entries(april, "pl", ("pl", "ua"))
+        self.assertAlmostEqual(
+            self._sum(profit_and_loss, "pl", account_type="income"), 10_000.0, delta=0.01
+        )
+        self.assertAlmostEqual(
+            -self._sum(profit_and_loss, "ua", account_type="expense"), 10_000.0, delta=0.01
+        )
+        self.assertAlmostEqual(
+            self._sum(profit_and_loss, account_code=delta.ACC_IC_CLEARING), 0.0, delta=0.01
+        )
+        balance_sheet = self._entries(april, "bs", ("pl", "ua"), on=date(2026, 4, 30))
+        self.assertAlmostEqual(
+            -self._sum(balance_sheet, "pl", account_code=delta.ACC_RECEIVABLE), 10_000.0, delta=0.01
+        )
+        self.assertAlmostEqual(
+            self._sum(balance_sheet, "ua", account_code=delta.ACC_PAYABLE), 10_000.0, delta=0.01
+        )
+
+        pair = april.difference_ids.filtered(
+            lambda d: (d.first_company_id | d.second_company_id) == (poland | ukraine)
+        )
+        self.assertEqual(len(pair), 1)
+        self.assertAlmostEqual(pair.timing_difference, 0.0, delta=0.01)
+        self.assertAlmostEqual(pair.cash_in_transit, 0.0, delta=0.01)
+        self.assertAlmostEqual(april.clearing_balance, 0.0, delta=0.01)
+
+        group = april.get_figures(self.members | self.elim_company)
+        self.assertAlmostEqual(group["ic_revenue"], 0.0, delta=0.01)
+        self.assertAlmostEqual(group["ic_cost"], 0.0, delta=0.01)
+        # Revenue and cost of the pair cancel in the group even without an elimination, so
+        # the two checks below guard against stray FX, rounding or clearing residue only.
+        self.assertAlmostEqual(
+            group["net_profit"], self.expected.APRIL["group_net_profit"], delta=0.01
+        )
+        self.assertAlmostEqual(group["total_assets"], group["total_liabilities_equity"], delta=0.01)
+
+    def test_amount_dispute_is_reported_apart_from_timing(self):
+        """Both sides book the same April document, at different amounts.
+
+        Delta Ukraine invoices USD 10,000 on 10 April; Delta US books the bill the same day,
+        with the invoice number as its reference, at USD 9,900. By hand, in USD: the pair's
+        100 is an amount difference, not a timing difference (the March cut-off has unwound
+        by April: receivable 145,000, payable 144,900), and no cash is in transit. Both sides
+        are still eliminated in full, so the group's April result stays the oracle's.
+        """
+        usd = self.env.ref("base.USD")
+        ukraine, delta_us = self.companies["ua"], self.companies["us"]
+        invoice = self.scenario._invoice(
+            ukraine,
+            "out_invoice",
+            "us",
+            date(2026, 4, 10),
+            10_000.0,
+            usd,
+            delta.ACC_REVENUE,
+            "Engineering services, April change request",
+        )
+        bill = self.scenario._invoice(
+            delta_us,
+            "in_invoice",
+            "ua",
+            date(2026, 4, 10),
+            9_900.0,
+            usd,
+            delta.ACC_EXPENSE,
+            "Engineering services from Delta Ukraine, April change request",
+            ref=invoice.name,
+        )
+        april = self._run(4)
+
+        pair = april.difference_ids.filtered(
+            lambda d: (d.first_company_id | d.second_company_id) == (ukraine | delta_us)
+        )
+        self.assertAlmostEqual(pair.amount_difference, 100.0, delta=0.01)
+        self.assertAlmostEqual(pair.timing_difference, 0.0, delta=0.01)
+        self.assertAlmostEqual(pair.cash_in_transit, 0.0, delta=0.01)
+        self.assertIn(invoice.name, pair.disputed_documents)
+        self.assertIn(bill.name, pair.disputed_documents)
+
+        def clearing(kind, words):
+            lines = self._entries(april, kind, ("ua", "us"), on=date(2026, 4, 30)).filtered(
+                lambda line: line.account_id == self.group.clearing_account_id
+                and words in line.name
+            )
+            return sum(lines.mapped("balance"))
+
+        # Profit and loss: Delta US's 2 April bill unwinds the March cut-off with a debit of
+        # 50,000; the disputed 100 is a line of its own. Balance sheet: only the dispute.
+        self.assertAlmostEqual(clearing("pl", "one side only"), 50_000.0, delta=0.01)
+        self.assertAlmostEqual(clearing("pl", "Amounts disagree"), -100.0, delta=0.01)
+        self.assertAlmostEqual(clearing("bs", "one side only"), 0.0, delta=0.01)
+        self.assertAlmostEqual(clearing("bs", "Amounts disagree"), 100.0, delta=0.01)
+        self.assertAlmostEqual(april.clearing_balance, 0.0, delta=0.01)
+
+        group = april.get_figures(self.members | self.elim_company)
+        self.assertAlmostEqual(group["ic_revenue"], 0.0, delta=0.01)
+        self.assertAlmostEqual(group["ic_cost"], 0.0, delta=0.01)
+        self.assertAlmostEqual(
+            group["net_profit"], self.expected.APRIL["group_net_profit"], delta=0.01
+        )
+        self.assertAlmostEqual(group["total_assets"], group["total_liabilities_equity"], delta=0.01)
+
+    def test_invoice_billed_in_parts_is_not_a_dispute(self):
+        """Delta US books Ukraine's USD 10,000 April invoice as two bills, 6,000 and 4,000.
+
+        Both bills carry the invoice number as their reference, so the three documents are one
+        transaction and together they agree: no amount difference, no timing difference.
+        """
+        usd = self.env.ref("base.USD")
+        ukraine, delta_us = self.companies["ua"], self.companies["us"]
+        invoice = self.scenario._invoice(
+            ukraine,
+            "out_invoice",
+            "us",
+            date(2026, 4, 10),
+            10_000.0,
+            usd,
+            delta.ACC_REVENUE,
+            "Engineering services, April change request",
+        )
+        for amount in (6_000.0, 4_000.0):
+            self.scenario._invoice(
+                delta_us,
+                "in_invoice",
+                "ua",
+                date(2026, 4, 10),
+                amount,
+                usd,
+                delta.ACC_EXPENSE,
+                "Engineering services from Delta Ukraine, part of April change request",
+                ref=invoice.name,
+            )
+        april = self._run(4)
+        pair = april.difference_ids.filtered(
+            lambda d: (d.first_company_id | d.second_company_id) == (ukraine | delta_us)
+        )
+        self.assertAlmostEqual(pair.amount_difference, 0.0, delta=0.01)
+        self.assertFalse(pair.disputed_documents)
+        self.assertAlmostEqual(pair.timing_difference, 0.0, delta=0.01)
+        self.assertAlmostEqual(pair.cash_in_transit, 0.0, delta=0.01)
+
     # ---------------------------------------------------------- review findings
 
     def test_changed_earlier_month_is_refused(self):
@@ -486,8 +665,8 @@ class TestConsolidation(DeltaCase):
         with freeze_time("2026-04-02"):
             self.group.auto_run = True
             self.env["account.consolidation.group"]._cron_run_previous_month()
-            april = self.group.run_ids.filtered(lambda r: r.date_from == date(2026, 3, 1))
-            self.assertEqual(april, self.runs[3])
+            march = self.group.run_ids.filtered(lambda r: r.date_from == date(2026, 3, 1))
+            self.assertEqual(march, self.runs[3])
             moves = self.runs[3].move_ids
             self.env["account.consolidation.group"]._cron_run_previous_month()
             self.assertEqual(self.runs[3].move_ids, moves, "a closed month is not re-run")

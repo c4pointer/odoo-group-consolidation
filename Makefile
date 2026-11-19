@@ -10,7 +10,7 @@ ODOO     := $(COMPOSE) run --rm -T odoo odoo
 DROPDB   := $(COMPOSE) exec -T db dropdb -U odoo --if-exists --force
 
 .DEFAULT_GOAL := help
-.PHONY: help up down logs demo bare demo-data tunnel tunnel-ts tunnel-lr tunnel-cf test harness lint fmt shell
+.PHONY: help up down logs demo bare demo-data tunnel tunnel-ts tunnel-lr tunnel-cf test test-one harness lint fmt shell
 
 help: ## List available targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
@@ -67,6 +67,11 @@ test: ## Run the module's tests on a throw-away database
 	$(COMPOSE) up -d --wait db
 	$(DROPDB) $(TEST_DB)
 	$(ODOO) -d $(TEST_DB) -i $(MODULE) --test-tags /$(MODULE) --stop-after-init --log-level=test
+
+test-one: ## Re-run some tests on the test database left by `make test`: make test-one T=TestScenarioBooks[.test_name]
+	@test -n "$(T)" || { echo "Usage: make test-one T=TestClass[.test_method] (one class; run make test first)"; exit 2; }
+	$(COMPOSE) up -d --wait db
+	$(ODOO) -d $(TEST_DB) -u $(MODULE) --test-tags /$(MODULE):$(T) --stop-after-init --log-level=test
 
 harness: ## Test the Claude Code hooks in .claude/hooks
 	python3 -I -m unittest discover -s .claude/hooks

@@ -352,6 +352,131 @@ class AccountConsolidationRun(models.Model):
             )
         return book
 
+    def _read_documents(self, company, classify, member_by_partner):
+        """Intercompany profit and loss of one company up to month end, by document.
+
+        Returns {counterpart company: {move: amount in group currency}}, debit-positive and
+        translated exactly as `_read_book` translates them, so per pair the documents add up
+        to the book. Used to tell a document booked by one side only (timing) from one both
+        sides booked at different amounts (a dispute).
+        """
+        documents = defaultdict(lambda: defaultdict(float))
+        items = self.env["account.move.line"].with_company(company)
+        base_domain = [
+            ("company_id", "=", company.id),
+            ("parent_state", "=", "posted"),
+            ("date", "<=", self.date_to),
+            ("partner_id", "!=", False),
+        ]
+        for operator in ("=", "!="):
+            rows = items._read_group(
+                [*base_domain, ("amount_currency", operator, 0.0)],
+                ["move_id", "account_id", "partner_id", "currency_id", "date:month"],
+                ["balance:sum", "amount_currency:sum"],
+            )
+            for move, account, partner, currency, month, balance, amount_currency in rows:
+                counterpart = member_by_partner.get(partner.commercial_partner_id)
+                if not counterpart or counterpart == company:
+                    continue
+                line = classify(account.with_company(company).code, True)
+                if not line or line.section != "pl" or line.partner_scope != "intercompany":
+                    continue
+                documents[counterpart][move] += self._translate(
+                    company,
+                    "pl",
+                    currency,
+                    month,
+                    balance,
+                    amount_currency,
+                    has_document_amount=operator == "!=",
+                    intercompany=True,
+                )
+        return documents
+
+    @staticmethod
+    def _match_documents(first_moves, second_moves):
+        """Groups of documents both sides booked, as (first-side moves, second-side moves).
+
+        Two documents are linked when one's reference is the other's number: Odoo's convention
+        for a vendor bill (its Reference is the vendor's invoice number) and what Odoo's
+        inter-company rules write. Linked documents form one group, so an invoice booked as
+        several bills is compared as a whole. Unlinked documents are left out (timing).
+        """
+        parent = {move: move for move in (*first_moves, *second_moves)}
+
+        def root(move):
+            while parent[move] != move:
+                parent[move] = parent[parent[move]]
+                move = parent[move]
+            return move
+
+        for moves, others in ((first_moves, second_moves), (second_moves, first_moves)):
+            by_name = {other.name: other for other in others}
+            for move in moves:
+                other = by_name.get((move.ref or "").strip())
+                if other:
+                    parent[root(move)] = root(other)
+
+        groups = defaultdict(lambda: ([], []))
+        for move in first_moves:
+            groups[root(move)][0].append(move)
+        for move in second_moves:
+            groups[root(move)][1].append(move)
+        return sorted(
+            (group for group in groups.values() if group[0] and group[1]),
+            key=lambda group: min(move.id for move in (*group[0], *group[1])),
+        )
+
+    def _disputes(self, first_moves, second_moves, cutoff):
+        """Groups both sides booked by `cutoff` whose amounts disagree, with the difference.
+
+        The difference has the sign of the timing difference: positive when the seller booked
+        more than the buyer.
+        """
+        currency = self.currency_id
+        first_moves = {m: a for m, a in first_moves.items() if m.date <= cutoff}
+        second_moves = {m: a for m, a in second_moves.items() if m.date <= cutoff}
+        disputes = []
+        for first_group, second_group in self._match_documents(first_moves, second_moves):
+            first_amount = sum(first_moves[move] for move in first_group)
+            second_amount = sum(second_moves[move] for move in second_group)
+            difference = -currency.round(first_amount + second_amount)
+            if not currency.is_zero(difference):
+                dispute = (first_group, first_amount, second_group, second_amount, difference)
+                disputes.append(dispute)
+        return disputes
+
+    def _amount_differences(self, documents, first, second):
+        """Amounts the two sides disagree on, over documents both of them booked.
+
+        Returns (since the start, change in this month, description). The month's change is
+        the difference between the totals at this and the previous month end, so a cut-off
+        that unwinds stays timing and a group completed over two months is counted once.
+        """
+        currency = self.currency_id
+        first_moves = documents[first].get(second, {})
+        second_moves = documents[second].get(first, {})
+        now = self._disputes(first_moves, second_moves, self.date_to)
+        before = self._disputes(first_moves, second_moves, self.date_from - timedelta(days=1))
+        total = currency.round(sum(dispute[-1] for dispute in now))
+        this_month = currency.round(total - sum(dispute[-1] for dispute in before))
+        notes = [
+            self.env._(
+                "%(first_docs)s (%(first)s): %(first_amount)s; %(second_docs)s (%(second)s): "
+                "%(second_amount)s; difference %(difference)s %(currency)s",
+                first_docs=", ".join(move.name for move in first_group),
+                first=first.name,
+                first_amount=f"{abs(first_amount):,.2f}",
+                second_docs=", ".join(move.name for move in second_group),
+                second=second.name,
+                second_amount=f"{abs(second_amount):,.2f}",
+                difference=f"{difference:,.2f}",
+                currency=currency.name,
+            )
+            for first_group, first_amount, second_group, second_amount, difference in now
+        ]
+        return total, this_month, "\n".join(notes)
+
     def _read_fingerprint(self):
         """Fingerprint of the member books as they read today for this run's month."""
         classify = self.env["account.consolidation.line"].search([])._classifier()
@@ -415,7 +540,7 @@ class AccountConsolidationRun(models.Model):
             # Denominated in group currency: the document amount is exact.
             return amount_currency
         if section == "pl":
-            average, _closing = self.group_id._rate(company.currency_id, month)
+            average, _closing  = self.group_id._rate(company.currency_id, month)
             return balance / average
         _average, closing = self.group_id._rate(company.currency_id, self.date_to)
         return balance / closing
@@ -429,11 +554,12 @@ class AccountConsolidationRun(models.Model):
         member_by_partner = group._member_by_partner()
         members = group.member_company_ids.sorted("id")
         books = {c: self._read_book(c, classify, member_by_partner) for c in members}
+        documents = {c: self._read_documents(c, classify, member_by_partner) for c in members}
         fingerprint = self._fingerprint(books)
 
         differences = []
         for first, second in combinations(members, 2):
-            differences.append(self._eliminate_pair(books, first, second))
+            differences.append(self._eliminate_pair(books, documents, first, second))
         self.env["account.consolidation.difference"].create(differences)
 
         books[group.company_id] = self._read_book(group.company_id, classify, member_by_partner)
@@ -487,8 +613,11 @@ class AccountConsolidationRun(models.Model):
                 if counterpart == other and line.partner_scope == "intercompany":
                     yield company, other, line, code, month, amount
 
-    def _eliminate_pair(self, books, first, second):
+    def _eliminate_pair(self, books, documents, first, second):
         group_currency = self.currency_id
+        disputed, disputed_this_month, disputed_notes = self._amount_differences(
+            documents, first, second
+        )
         pl_month = defaultdict(float)
         pl_by_month = defaultdict(float)
         balance_sheet = defaultdict(float)
@@ -505,14 +634,30 @@ class AccountConsolidationRun(models.Model):
 
         rounded_pl = {k: group_currency.round(v) for k, v in pl_month.items()}
         pl_lines = self._elimination_lines(rounded_pl, labels)
+        # This month's residual: documents booked by one side only, plus amounts both sides
+        # booked differently. Each goes to the clearing account on a line of its own.
         timing_today = -sum(rounded_pl.values())
+        one_side_today = group_currency.round(timing_today - disputed_this_month)
         if pl_lines:
-            if not group_currency.is_zero(timing_today):
+            if not group_currency.is_zero(one_side_today):
                 pl_lines.append(
                     self._clearing_line(
-                        -timing_today,
+                        -one_side_today,
                         self.env._(
                             "Booked by one side only in %(month)s: %(first)s / %(second)s",
+                            month=f"{self.date_from:%B %Y}",
+                            first=first.name,
+                            second=second.name,
+                        ),
+                    )
+                )
+            if not group_currency.is_zero(disputed_this_month):
+                pl_lines.append(
+                    self._clearing_line(
+                        -disputed_this_month,
+                        self.env._(
+                            "Amounts disagree on documents both sides booked in %(month)s: "
+                            "%(first)s / %(second)s",
                             month=f"{self.date_from:%B %Y}",
                             first=first.name,
                             second=second.name,
@@ -531,20 +676,34 @@ class AccountConsolidationRun(models.Model):
                 ),
             )
 
-        # Documents booked by one side only, since the start: the sum of every month's
-        # P&L elimination residual, rounded the same way, so the clearing account nets to zero.
+        # The P&L residual since the start (documents booked by one side only, plus disputed
+        # amounts): the sum of every month's P&L elimination residual, rounded the same way,
+        # so the clearing account nets to zero. The rest of the net balance is cash in transit.
         timing = -sum(group_currency.round(v) for v in pl_by_month.values())
         rounded_bs = {k: group_currency.round(v) for k, v in balance_sheet.items()}
         net = sum(rounded_bs.values())
         in_transit = group_currency.round(net - timing)
+        one_side = group_currency.round(timing - disputed)
         bs_lines = self._elimination_lines(rounded_bs, labels)
         if bs_lines:
-            if not group_currency.is_zero(timing):
+            if not group_currency.is_zero(one_side):
                 bs_lines.append(
                     self._clearing_line(
-                        timing,
+                        one_side,
                         self.env._(
                             "Documents booked by one side only: %(first)s / %(second)s",
+                            first=first.name,
+                            second=second.name,
+                        ),
+                    )
+                )
+            if not group_currency.is_zero(disputed):
+                bs_lines.append(
+                    self._clearing_line(
+                        disputed,
+                        self.env._(
+                            "Amounts disagree on documents both sides booked: "
+                            "%(first)s / %(second)s",
                             first=first.name,
                             second=second.name,
                         ),
@@ -586,7 +745,9 @@ class AccountConsolidationRun(models.Model):
             "run_id": self.id,
             "first_company_id": first.id,
             "second_company_id": second.id,
-            "timing_difference": timing,
+            "timing_difference": one_side,
+            "amount_difference": disputed,
+            "disputed_documents": disputed_notes or False,
             "cash_in_transit": in_transit,
         }
 

@@ -120,4 +120,4 @@ verified, and who did what.
   restricted user cover group configuration and the report menu for a
   read-only accountant.
 - An exchange difference Odoo posts on an intercompany document in a third
-  currency is not covered by a test (assumption 34).
+  currency is not covered by a test (assumption 35).

@@ -26,6 +26,10 @@ journal items (partner = the other company), in USD:
    *Cash in transit*.
 3. *Controls*: the clearing account must net to zero, and a month runs only
    if the books of the latest closed month have not changed since it closed.
+   Each pair's difference is split by cause: timing, cash in transit, and an
+   amount the two sides booked differently on the same document (matched by
+   the bill's reference), listed with its documents for the company in the
+   wrong to correct.
 
 Intercompany amounts come from the documents' USD amount (`amount_currency`),
 so they eliminate exactly. Everything else is translated at the average rate
