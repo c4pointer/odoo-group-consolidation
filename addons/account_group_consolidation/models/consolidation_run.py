@@ -540,7 +540,7 @@ class AccountConsolidationRun(models.Model):
             # Denominated in group currency: the document amount is exact.
             return amount_currency
         if section == "pl":
-            average, _closing  = self.group_id._rate(company.currency_id, month)
+            average, _closing = self.group_id._rate(company.currency_id, month)
             return balance / average
         _average, closing = self.group_id._rate(company.currency_id, self.date_to)
         return balance / closing
